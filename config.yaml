@@ -1,0 +1,13 @@
+mysql:
+  host: '127.0.0.1'
+  user: 'root'
+  passwd: 'qiubing'
+  db: 'GITHUB'
+
+#mysql:
+#  host: 'localhost'
+#  user: '2105'
+#  mysql_db_name: 'mrajoedb'
+#  mysql_db_user: 'root'
+#  mysql_db_password: 'Tian2334227'
+#  mysql_db_charset: 'utf8'
