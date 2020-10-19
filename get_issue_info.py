@@ -10,6 +10,8 @@ import yaml as yaml
 import urllib2
 import json
 import datetime
+from utils import base
+from datetime import datetime, timedelta
 
 
 # define some global things
@@ -17,6 +19,7 @@ import datetime
 f = open('config.yaml', 'r')
 config = yaml.load(f.read(), Loader=yaml.BaseLoader)
 THREAD_NUM = 1
+base_path = "/home/qiubing/github/issues/"
 
 # read all the tokens
 f = open('github_tokens.txt', 'r')
@@ -64,6 +67,12 @@ def connectMysqlDB(config, autocommit = True):
                          autocommit=autocommit)
     return db
 
+def time_handler(target_time):
+    _date = datetime.strptime(target_time, "%Y-%m-%dT%H:%M:%SZ")
+    local_time = _date + timedelta(hours=8)
+    end_time = local_time.strftime("%Y-%m-%d %H:%M:%S")
+    return end_time
+
 # the thread for processing each pr
 class crawlThread(threading.Thread):
     def __init__(self, q):
@@ -73,6 +82,7 @@ class crawlThread(threading.Thread):
         work = self.q.get(timeout=0)
         print "the number of work in queue: " + str(self.q.qsize())
 
+        id = work["repo_id"]
         owner = work["owner"]
         repo = work["repo"]
         page = 1
@@ -83,6 +93,7 @@ class crawlThread(threading.Thread):
         cur = db.cursor()
 
         while True:
+            print ""
             try:
                 # get a suitable token and combine header
                 github_token = get_token()
@@ -94,12 +105,12 @@ class crawlThread(threading.Thread):
                     'Accept': 'application/vnd.github.squirrel-girl-preview+json'
 
                 }
-                print headers
+                # print "headers is: " + str(headers)
 
                 # combine url, notice: per page is 30
                 url = "https://api.github.com/repos/" + owner + "/" + repo + "/issues"
                 url = url + "?state=all" + "&page=" + str(page) + "&per_page=30"
-                print url
+                print "url is: " + url
 
                 insert_dict = {}
                 try:
@@ -111,9 +122,8 @@ class crawlThread(threading.Thread):
                     response = urllib2.urlopen(req)
                     result = json.loads(response.read().decode("utf-8"))
                     # print result
-                    page += 1   # page++
 
-                    # handle response json data
+                    # judge response info empty
                     length = len(result)
                     sum += length
                     if length == 0:
@@ -121,6 +131,25 @@ class crawlThread(threading.Thread):
                         cur.close()
                         db.close()
                         print "finish & the sum of issue of pull request is: " + str(sum)
+                        self.q.task_done()
+                        return
+
+                    # write file
+                    json_str = json.dumps(result)
+                    # print "json format data: " + json_str
+                    filename = base_path + "/" + owner + "&" + repo + "&" + str(id) + "/" + str(page) + ".json"
+                    flag = base.generate_file(filename, json_str)
+                    if flag is True:
+                        print "create file successfully: " + filename
+                    elif flag is False:
+                        print "file is already existed: " + filename
+                    else:
+                        print "create file failed: " + flag + " filename: " + filename
+                        continue
+
+                    page += 1  # page++
+
+                    # handle response json data
                     num = 0
                     while num < length:
                         insert_dict = {}
@@ -136,6 +165,14 @@ class crawlThread(threading.Thread):
                             insert_dict["comments"] = None
                         else:
                             insert_dict["comments"] = result[num]["comments"]
+                        if "created_at" not in result[num]:
+                            insert_dict["created_at"] = None
+                        else:
+                            insert_dict["created_at"] = result[num]["created_at"]
+                        if "updated_at" not in result[num]:
+                            insert_dict["updated_at"] = None
+                        else:
+                            insert_dict["updated_at"] = result[num]["updated_at"]
                         if "login" not in result[num]["user"]:
                             insert_dict["user_login"] = None
                         else:
@@ -176,25 +213,30 @@ class crawlThread(threading.Thread):
                             insert_dict["down"] = None
                         else:
                             insert_dict["down"] = result[num]["reactions"]["-1"]
-                        print insert_dict
+                        # print "insert num: " + str(insert_dict)
 
+                        # 0 represent issue, 1 represent pull request
                         if "pull_request" not in result[num]:
-                            table = "github_issue"
+                            flag = 0
                         else:
-                            table = "github_pull_request"
-                        print "the type: " + table
+                            flag = 1
+                        print "the issue type: " + str(flag)
 
                         # insert data to database table
-                        if insert_dict is not None:
-                            cur.execute("insert into " + table + " "
-                                        "(id, number, user_login, owner_login, repo, comments, total_count, up, down, laugh, confused, heart, hooray, rocket, eyes) "
-                                        "values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                                        (insert_dict["id"], insert_dict["number"],
-                                         insert_dict["user_login"], owner, repo, insert_dict["comments"],
-                                         insert_dict["total_count"], insert_dict["up"], insert_dict["down"],
-                                         insert_dict["laugh"], insert_dict["confused"], insert_dict["heart"],
-                                         insert_dict["hooray"], insert_dict["rocket"], insert_dict["eyes"]))
-                            db.commit()
+                        try:
+                            if insert_dict is not None:
+                                cur.execute("insert into github_issue "
+                                            "(id, number, user_login, owner_login, repo, created_at, updated_at, flag, comments, total_count, up, down, laugh, confused, heart, hooray, rocket, eyes) "
+                                            "values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                                            (insert_dict["id"], insert_dict["number"],
+                                             insert_dict["user_login"], owner, repo, time_handler(insert_dict["created_at"]),
+                                             time_handler(insert_dict["updated_at"]), flag,insert_dict["comments"],
+                                             insert_dict["total_count"], insert_dict["up"], insert_dict["down"],
+                                             insert_dict["laugh"], insert_dict["confused"], insert_dict["heart"],
+                                             insert_dict["hooray"], insert_dict["rocket"], insert_dict["eyes"]))
+                                db.commit()
+                        except Exception as e:
+                            print str(e)
                         num += 1
                 except urllib2.HTTPError as e:
                     print str(e.code) + " error with this page: " + url
@@ -225,14 +267,13 @@ if __name__ == "__main__":
 
     # read all the repos
     unhandled_tasks = []
-    cur.execute("select id, owner, reponame, issues "
+    cur.execute("select id, owner, name "
                 "from github_repo ")
     items = cur.fetchall()
     for item in items:
         unhandled_tasks.append({"repo_id": int(item[0]),
                                 "owner": item[1],
-                                "repo": item[2],
-                                "issues": item[3],
+                                "repo": item[2]
                                 })
     print "finish reading repos"
     print "%d tasks left for handling" % (len(unhandled_tasks))
@@ -249,3 +290,5 @@ if __name__ == "__main__":
     workQueue.join()
 
     print "finish"
+
+    # print time_handler("2020-09-23T13:53:35Z")

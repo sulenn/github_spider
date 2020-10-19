@@ -15,13 +15,13 @@ import datetime
 
 # define some global things
 # db config file
-f = open('config.yaml', 'r')
+f = open('../config.yaml', 'r')
 config = yaml.load(f.read(), Loader=yaml.BaseLoader)
 THREAD_NUM = 10
 base_path = "/home/qiubing/github/comments/"
 
 # read all the tokens
-f = open('github_tokens.txt', 'r')
+f = open('../github_tokens.txt', 'r')
 github_tokens = f.read().strip().split("\n")
 
 use_time_count = {} # record the times of each token
@@ -200,7 +200,7 @@ class crawlThread(threading.Thread):
 
                             # insert data to database table
                             if insert_dict is not None:
-                                cur.execute("insert into github_comment "
+                                cur.execute("insert into github_comment_test "
                                             "(id, issue_number, user_login, owner_login, repo, created_at, updated_at, total_count, up, down, laugh, confused, heart, hooray, rocket, eyes) "
                                             "values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                                             (insert_dict["id"], number, insert_dict["user_login"],
@@ -244,7 +244,7 @@ if __name__ == "__main__":
     # read all the repos
     unhandled_tasks = []
     cur.execute("select number, owner_login, repo "
-                "from github_issue ")
+                "from github_issue_test ")
     items = cur.fetchall()
     for item in items:
         unhandled_tasks.append({"number": int(item[0]),

@@ -212,4 +212,4 @@ if __name__ == "__main__":
         crawlThread(workQueue).start()
     workQueue.join()
 
-    print "finish"
+    print "final finish"
