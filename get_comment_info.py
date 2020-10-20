@@ -18,7 +18,7 @@ import datetime
 f = open('config.yaml', 'r')
 config = yaml.load(f.read(), Loader=yaml.BaseLoader)
 THREAD_NUM = 10
-base_path = "/home/qiubing/github/comments/"
+base_path = "/home/qiubing/github/comments"
 
 # read all the tokens
 f = open('github_tokens.txt', 'r')
@@ -199,16 +199,19 @@ class crawlThread(threading.Thread):
                             print "insert info: " + str(insert_dict)
 
                             # insert data to database table
-                            if insert_dict is not None:
-                                cur.execute("insert into github_comment "
-                                            "(id, issue_number, user_login, owner_login, repo, created_at, updated_at, total_count, up, down, laugh, confused, heart, hooray, rocket, eyes) "
-                                            "values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                                            (insert_dict["id"], number, insert_dict["user_login"],
-                                             owner, repo, base.time_handler(insert_dict["created_at"]), base.time_handler(insert_dict["updated_at"]),
-                                             insert_dict["total_count"], insert_dict["up"], insert_dict["down"],
-                                             insert_dict["laugh"], insert_dict["confused"], insert_dict["heart"],
-                                             insert_dict["hooray"], insert_dict["rocket"], insert_dict["eyes"]))
-                                db.commit()
+                            try:
+                                if insert_dict is not None:
+                                    cur.execute("insert into github_comment "
+                                                "(id, issue_number, user_login, owner_login, repo, created_at, updated_at, total_count, up, down, laugh, confused, heart, hooray, rocket, eyes) "
+                                                "values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                                                (insert_dict["id"], number, insert_dict["user_login"],
+                                                 owner, repo, base.time_handler(insert_dict["created_at"]), base.time_handler(insert_dict["updated_at"]),
+                                                 insert_dict["total_count"], insert_dict["up"], insert_dict["down"],
+                                                 insert_dict["laugh"], insert_dict["confused"], insert_dict["heart"],
+                                                 insert_dict["hooray"], insert_dict["rocket"], insert_dict["eyes"]))
+                                    db.commit()
+                            except Exception as e:
+                                print str(e)
                             num += 1
                     except urllib2.HTTPError as e:
                         print str(e.code) + " error with this page: " + url
@@ -241,11 +244,23 @@ if __name__ == "__main__":
     db = connectMysqlDB(config)
     cur = db.cursor()
 
-    # read all the repos
+    # read all the info
     unhandled_tasks = []
     cur.execute("select number, owner_login, repo "
                 "from github_issue ")
     items = cur.fetchall()
+    items = list(items)
+
+    cur.execute("select distinct owner_login, repo "
+                "from github_comment ")
+    comment_items = cur.fetchall()
+
+    comment_items = list(comment_items)
+    for i in range(len(items)-1, -1, -1):
+        for comment_item in comment_items:
+            if items[i][1] == comment_item[0] and items[i][2] == comment_item[1]:
+                items.remove(items[i])
+
     for item in items:
         unhandled_tasks.append({"number": int(item[0]),
                                 "owner": item[1],

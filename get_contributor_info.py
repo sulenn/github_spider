@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 f = open('config.yaml', 'r')
 config = yaml.load(f.read(), Loader=yaml.BaseLoader)
 THREAD_NUM = 1
-base_path = "/home/qiubing/github/contributors/"
+base_path = "/home/qiubing/github/contributors"
 
 # read all the tokens
 f = open('github_tokens.txt', 'r')

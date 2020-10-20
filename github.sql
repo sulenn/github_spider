@@ -140,6 +140,20 @@ IF
 	    PRIMARY KEY ( `id` )
 	)ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
+-- create table: github_commit
+CREATE TABLE
+IF
+	NOT EXISTS `github_commit` (
+		`commit_hash` VARCHAR(40) NOT NULL,
+		`repo_id` INT,
+		`author` VARCHAR(50) NOT NULL,
+		`email` VARCHAR(50) NOT NULL,
+	    `time` datetime,
+	    `message` TEXT,
+	    `commit_diff` TEXT,
+	    PRIMARY KEY ( `commit_hash` )
+	)ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
 -- select the sum of github_issue and github_pull_request
 select issue.num as issue_num, pull_request.num as pull_request_num
 from (select count(*) as num from github_issue) as issue, (select count(*) as num from github_pull_request) as pull_request;

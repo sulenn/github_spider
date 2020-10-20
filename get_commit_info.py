@@ -19,7 +19,7 @@ from datetime import datetime, timedelta
 f = open('config.yaml', 'r')
 config = yaml.load(f.read(), Loader=yaml.BaseLoader)
 THREAD_NUM = 1
-base_path = "/home/qiubing/github/issues"
+base_path = "/home/qiubing/github/commits"
 
 # read all the tokens
 f = open('github_tokens.txt', 'r')
@@ -67,12 +67,6 @@ def connectMysqlDB(config, autocommit = True):
                          autocommit=autocommit)
     return db
 
-def time_handler(target_time):
-    _date = datetime.strptime(target_time, "%Y-%m-%dT%H:%M:%SZ")
-    local_time = _date + timedelta(hours=8)
-    end_time = local_time.strftime("%Y-%m-%d %H:%M:%S")
-    return end_time
-
 # the thread for processing each pr
 class crawlThread(threading.Thread):
     def __init__(self, q):
@@ -107,9 +101,9 @@ class crawlThread(threading.Thread):
                 }
                 # print "headers is: " + str(headers)
 
-                # combine url, notice: per page is 30
-                url = "https://api.github.com/repos/" + owner + "/" + repo + "/issues"
-                url = url + "?state=all" + "&page=" + str(page) + "&per_page=30"
+                # combine url
+                url = "https://api.github.com/repos/" + owner + "/" + repo + "/commits"
+                url = url + "?page=" + str(page)
                 print "url is: " + url
 
                 insert_dict = {}
@@ -153,87 +147,30 @@ class crawlThread(threading.Thread):
                     num = 0
                     while num < length:
                         insert_dict = {}
-                        if "id" not in result[num]:
-                            insert_dict["id"] = None
+                        if "sha" not in result[num]:
+                            insert_dict["commit_hash"] = None
                         else:
-                            insert_dict["id"] = result[num]["id"]
-                        if "number" not in result[num]:
-                            insert_dict["number"] = None
+                            insert_dict["commit_hash"] = result[num]["sha"]
+                        if "author" not in result[num]["commit"]:
+                            insert_dict["author"] = None
                         else:
-                            insert_dict["number"] = result[num]["number"]
-                        if "comments" not in result[num]:
-                            insert_dict["comments"] = None
+                            insert_dict["author"] = result[num]["commit"]["author"]["name"]
+                            insert_dict["email"] = result[num]["commit"]["author"]["email"]
+                            insert_dict["time"] = result[num]["commit"]["author"]["date"]
+                        if "message" not in result[num]["commit"]:
+                            insert_dict["message"] = None
                         else:
-                            insert_dict["comments"] = result[num]["comments"]
-                        if "created_at" not in result[num]:
-                            insert_dict["created_at"] = None
-                        else:
-                            insert_dict["created_at"] = result[num]["created_at"]
-                        if "updated_at" not in result[num]:
-                            insert_dict["updated_at"] = None
-                        else:
-                            insert_dict["updated_at"] = result[num]["updated_at"]
-                        if "login" not in result[num]["user"]:
-                            insert_dict["user_login"] = None
-                        else:
-                            insert_dict["user_login"] = result[num]["user"]["login"]
-                        if "heart" not in result[num]["reactions"]:
-                            insert_dict["heart"] = None
-                        else:
-                            insert_dict["heart"] = result[num]["reactions"]["heart"]
-                        if "eyes" not in result[num]["reactions"]:
-                            insert_dict["eyes"] = None
-                        else:
-                            insert_dict["eyes"] = result[num]["reactions"]["eyes"]
-                        if "rocket" not in result[num]["reactions"]:
-                            insert_dict["rocket"] = None
-                        else:
-                            insert_dict["rocket"] = result[num]["reactions"]["rocket"]
-                        if "total_count" not in result[num]["reactions"]:
-                            insert_dict["total_count"] = None
-                        else:
-                            insert_dict["total_count"] = result[num]["reactions"]["total_count"]
-                        if "confused" not in result[num]["reactions"]:
-                            insert_dict["confused"] = None
-                        else:
-                            insert_dict["confused"] = result[num]["reactions"]["confused"]
-                        if "hooray" not in result[num]["reactions"]:
-                            insert_dict["hooray"] = None
-                        else:
-                            insert_dict["hooray"] = result[num]["reactions"]["hooray"]
-                        if "+1" not in result[num]["reactions"]:
-                            insert_dict["up"] = None
-                        else:
-                            insert_dict["up"] = result[num]["reactions"]["+1"]
-                        if "laugh" not in result[num]["reactions"]:
-                            insert_dict["laugh"] = None
-                        else:
-                            insert_dict["laugh"] = result[num]["reactions"]["laugh"]
-                        if "-1" not in result[num]["reactions"]:
-                            insert_dict["down"] = None
-                        else:
-                            insert_dict["down"] = result[num]["reactions"]["-1"]
-                        # print "insert num: " + str(insert_dict)
-
-                        # 0 represent issue, 1 represent pull request
-                        if "pull_request" not in result[num]:
-                            flag = 0
-                        else:
-                            flag = 1
-                        print "the issue type: " + str(flag)
+                            insert_dict["message"] = result[num]["commit"]["message"]
+                        print "insert info: " + str(insert_dict)
 
                         # insert data to database table
                         try:
                             if insert_dict is not None:
-                                cur.execute("insert into github_issue "
-                                            "(id, number, user_login, owner_login, repo, created_at, updated_at, flag, comments, total_count, up, down, laugh, confused, heart, hooray, rocket, eyes) "
-                                            "values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                                            (insert_dict["id"], insert_dict["number"],
-                                             insert_dict["user_login"], owner, repo, time_handler(insert_dict["created_at"]),
-                                             time_handler(insert_dict["updated_at"]), flag,insert_dict["comments"],
-                                             insert_dict["total_count"], insert_dict["up"], insert_dict["down"],
-                                             insert_dict["laugh"], insert_dict["confused"], insert_dict["heart"],
-                                             insert_dict["hooray"], insert_dict["rocket"], insert_dict["eyes"]))
+                                cur.execute("insert into github_commit "
+                                            "(commit_hash, repo_id, author, email, time, message) "
+                                            "values (%s, %s, %s, %s, %s, %s)",
+                                            (insert_dict["commit_hash"], id, insert_dict["author"],
+                                             insert_dict["email"], base.time_handler(insert_dict["time"]), insert_dict["message"]))
                                 db.commit()
                         except Exception as e:
                             print str(e)
@@ -271,10 +208,11 @@ if __name__ == "__main__":
                 "from github_repo ")
     items = cur.fetchall()
     for item in items:
-        unhandled_tasks.append({"repo_id": int(item[0]),
-                                "owner": item[1],
-                                "repo": item[2]
-                                })
+        if item[1] == "FISCO-BCOS":
+            unhandled_tasks.append({"repo_id": int(item[0]),
+                                    "owner": item[1],
+                                    "repo": item[2]
+                                    })
     print "finish reading repos"
     print "%d tasks left for handling" % (len(unhandled_tasks))
 
@@ -290,5 +228,3 @@ if __name__ == "__main__":
     workQueue.join()
 
     print "finish"
-
-    # print time_handler("2020-09-23T13:53:35Z")
