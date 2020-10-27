@@ -246,20 +246,10 @@ if __name__ == "__main__":
 
     # read all the info
     unhandled_tasks = []
-    cur.execute("select number, owner_login, repo "
-                "from github_issue ")
+    cur.execute("select issue.number, issue.owner_login, issue.repo "
+                "from github_issue as issue "
+                "where issue.number not in (select distinct issue_number from github_comment) and issue.comments!=0")
     items = cur.fetchall()
-    items = list(items)
-
-    cur.execute("select distinct owner_login, repo "
-                "from github_comment ")
-    comment_items = cur.fetchall()
-
-    comment_items = list(comment_items)
-    for i in range(len(items)-1, -1, -1):
-        for comment_item in comment_items:
-            if items[i][1] == comment_item[0] and items[i][2] == comment_item[1]:
-                items.remove(items[i])
 
     for item in items:
         unhandled_tasks.append({"number": int(item[0]),

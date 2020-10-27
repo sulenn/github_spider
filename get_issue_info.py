@@ -67,12 +67,6 @@ def connectMysqlDB(config, autocommit = True):
                          autocommit=autocommit)
     return db
 
-def time_handler(target_time):
-    _date = datetime.strptime(target_time, "%Y-%m-%dT%H:%M:%SZ")
-    local_time = _date + timedelta(hours=8)
-    end_time = local_time.strftime("%Y-%m-%d %H:%M:%S")
-    return end_time
-
 # the thread for processing each pr
 class crawlThread(threading.Thread):
     def __init__(self, q):
@@ -229,8 +223,8 @@ class crawlThread(threading.Thread):
                                             "(id, number, user_login, owner_login, repo, created_at, updated_at, flag, comments, total_count, up, down, laugh, confused, heart, hooray, rocket, eyes) "
                                             "values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                                             (insert_dict["id"], insert_dict["number"],
-                                             insert_dict["user_login"], owner, repo, time_handler(insert_dict["created_at"]),
-                                             time_handler(insert_dict["updated_at"]), flag,insert_dict["comments"],
+                                             insert_dict["user_login"], owner, repo, base.time_handler(insert_dict["created_at"]),
+                                             base.time_handler(insert_dict["updated_at"]), flag,insert_dict["comments"],
                                              insert_dict["total_count"], insert_dict["up"], insert_dict["down"],
                                              insert_dict["laugh"], insert_dict["confused"], insert_dict["heart"],
                                              insert_dict["hooray"], insert_dict["rocket"], insert_dict["eyes"]))
@@ -267,8 +261,11 @@ if __name__ == "__main__":
 
     # read all the repos
     unhandled_tasks = []
-    cur.execute("select id, owner, name "
-                "from github_repo ")
+    cur.execute("select repo.id, repo.owner, repo.name "
+                "from github_repo as repo "
+                "left join (select owner_login, repo from github_issue GROUP BY owner_login, repo) as issue "
+                "on repo.owner=issue.owner_login and repo.name=issue.repo "
+                "where issue.owner_login is NULL")
     items = cur.fetchall()
     for item in items:
         unhandled_tasks.append({"repo_id": int(item[0]),
@@ -290,5 +287,3 @@ if __name__ == "__main__":
     workQueue.join()
 
     print "finish"
-
-    # print time_handler("2020-09-23T13:53:35Z")
