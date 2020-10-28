@@ -157,3 +157,20 @@ IF
 -- select the sum of github_issue and github_pull_request
 select issue.num as issue_num, pull_request.num as pull_request_num
 from (select count(*) as num from github_issue) as issue, (select count(*) as num from github_pull_request) as pull_request;
+
+-- create table: github_reaction
+-- 0 represent comment, 1 represent issue
+-- number represent comment or issue
+CREATE TABLE
+IF
+	NOT EXISTS `github_reaction` (
+		`id` INT,
+		`number` INT NOT NULL,
+		`user_login` VARCHAR(100) NOT NULL,
+		`owner_login` VARCHAR(100) NOT NULL,
+	    `repo` VARCHAR(100) NOT NULL,
+	    `created_at` datetime NOT NULL,
+	    `content` VARCHAR(100) NOT NULL,
+	    `flag` INT NOT NULL,
+	    PRIMARY KEY ( `id` )
+	)ENGINE=InnoDB DEFAULT CHARSET=utf8;
