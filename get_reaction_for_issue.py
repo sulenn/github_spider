@@ -210,8 +210,8 @@ if __name__ == "__main__":
     unhandled_tasks = []
     cur.execute("select issue.number, issue.owner_login, issue.repo "
                 "from github_issue as issue "
-                "where issue.owner_login='rails' and issue.repo='rails' and issue.total_count>0 and issue.number not in "
-                "(select number from github_reaction where owner_login='rails' and repo='rails' and flag=1)")
+                "where issue.owner_login='kubernetes' and issue.repo='kubernetes' and issue.total_count>0 and issue.number not in "
+                "(select number from github_reaction where owner_login='kubernetes' and repo='kubernetes' and flag=1)")
     items = cur.fetchall()
 
     for item in items:
