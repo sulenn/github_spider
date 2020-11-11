@@ -2,6 +2,8 @@
 import os
 import json
 from datetime import datetime, timedelta
+import time
+import MySQLdb
 
 def judge_file_exist(filename):
     return os.path.exists(filename)
@@ -42,6 +44,33 @@ def time_handler(target_time):
     local_time = _date + timedelta(hours=8)
     end_time = local_time.strftime("%Y-%m-%d %H:%M:%S")
     return end_time
+
+# get a suitable token
+def get_token(github_tokens, sleep_time_tokens, sleep_gap_token):
+    while(True):
+        # get the minimum count times for token
+        for token in github_tokens:
+            cur_time = time.time()
+            if cur_time - sleep_time_tokens[token] > sleep_gap_token:
+                sleep_time_tokens[token] = cur_time
+                return token
+        time.sleep(50)
+
+def connectMysqlDB(config, autocommit = True):
+
+    db = MySQLdb.connect(host=config['mysql']['host'],
+                         user=config['mysql']['user'],
+                         passwd=config['mysql']['passwd'],
+                         db=config['mysql']['db'],
+
+                         local_infile=1,
+                         use_unicode=True,
+                         charset='utf8mb4',
+
+                         sql_mode = 'STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION',
+
+                         autocommit=autocommit)
+    return db
 
 if __name__ == "__main__":
     # print judge_file_exist("/home/qiubing/github/issues/rails&rails/")
