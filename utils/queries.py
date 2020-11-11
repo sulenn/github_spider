@@ -22,7 +22,7 @@ query_github_user_info = """
                     websiteUrl
                     resourcePath
                     twitterUsername
-                    sponsorshipsAsMaintainer {
+                    sponsorshipsAsMaintainer(includePrivate: true) {
                         totalCount
                     }
                     sponsorshipsAsSponsor {
@@ -32,7 +32,7 @@ query_github_user_info = """
             }
         """
 
-query_github_user_sponsorlisting_info = """
+query_github_user_sponsor_listing_info = """
             query {
                 user(login:"%s") {
                     login
@@ -51,12 +51,13 @@ query_github_user_sponsorlisting_info = """
             }
         """
 
-query_github_user_sponsorlisting_tiers_info = """
+query_github_user_sponsor_listing_tiers_info = """
             query {
                 user(login:"%s") {
                     login
                     databaseId
                     sponsorsListing {
+                        slug
                         tiers(first:100) {
                             edges {
                                 node {
@@ -80,8 +81,13 @@ query_github_user_sponsorships_as_maintainer_info = """
                 user(login:"%s") {
                     login
                     databaseId
-                    sponsorshipsAsMaintainer(first:100) {
+                    sponsorshipsAsMaintainer(first:100, after:"%s", includePrivate: true) {
+                        pageInfo {
+                            endCursor
+                            hasNextPage
+                        }
                         edges {
+                            cursor
                             node {
                                 createdAt
                                 privacyLevel
@@ -118,8 +124,13 @@ query_github_user_sponsorships_as_sponsor_info = """
                 user(login:"%s") {
                     login
                     databaseId
-                    sponsorshipsAsSponsor(first:100) {
+                    sponsorshipsAsSponsor(first:100, after:"%s") {
+                        pageInfo {
+                            endCursor
+                            hasNextPage
+                        }
                         edges {
+                            cursor
                             node {
                                 createdAt
                                 privacyLevel

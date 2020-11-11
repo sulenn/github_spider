@@ -21,10 +21,10 @@ IF
 	    PRIMARY KEY ( `login` )
 	)ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
--- create table: github_sponsorlisting
+-- create table: github_sponsor_listing
 CREATE TABLE
 IF
-	NOT EXISTS `github_sponsorlisting` (
+	NOT EXISTS `github_sponsor_listing` (
 		`login` VARCHAR(100) NOT NULL,
 		`slug` VARCHAR(100) NOT NULL,
 		`name` VARCHAR(100) NOT NULL,
@@ -34,10 +34,10 @@ IF
 	    PRIMARY KEY ( `login` )
 	)ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
--- create table: github_sponsorlisting_tiers
+-- create table: github_sponsor_listing_tiers
 CREATE TABLE
 IF
-	NOT EXISTS `github_sponsorlisting_tiers` (
+	NOT EXISTS `github_sponsor_listing_tiers` (
 		`login` VARCHAR(100) NOT NULL,
 		`slug` VARCHAR(100) NOT NULL,
 		`monthly_price_in_cents` INT,
