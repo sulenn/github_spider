@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import time
 import MySQLdb
 
+# if the file or directory is exited, return True, or False
 def judge_file_exist(filename):
     return os.path.exists(filename)
 
@@ -56,6 +57,27 @@ def get_token(github_tokens, sleep_time_tokens, sleep_gap_token):
                 return token
         time.sleep(50)
 
+def judge_http_response(response):
+    if response.status_code != 200:
+        print("response.status_code: " + str(response.status_code))
+        return False
+    response_json = response.json()
+    if "errors" in response_json:
+        print json.dumps(response_json)
+        return False
+    return True
+
+# read all recursive file path in directory, not include directory name in returns
+def read_all_filename_in_directory(path):
+    g = os.walk(path)
+    files_path = []
+    for path, dir_list, file_list in g:
+        for file_name in file_list:
+            files_path.append(os.path.join(path, file_name))
+    return files_path
+
+
+
 def connectMysqlDB(config, autocommit = True):
 
     db = MySQLdb.connect(host=config['mysql']['host'],
@@ -81,7 +103,22 @@ if __name__ == "__main__":
     # print generate_file("/home/qiubing/github/issues/rails&rails/hello/1.json", "hello, world!")
     # print judge_file_exist("/home/qiubing/github/issues/rails&rails/hello/1.json")
 
-    json_str = get_info_from_file("/home/qiubing/github/issues/sulenn&blogDir&1/1.json")
-    print json_str
-    json_obj = json.loads(json_str)
-    print json_obj
+    # json_str = get_info_from_file("/home/qiubing/github/issues/sulenn&blogDir&1/1.json")
+    # print json_str
+    # json_obj = json.loads(json_str)
+    # print json_obj
+
+    # print judge_file_exist("/home/qiubing/github/sponsor/user/issue/calebporzio/2020-09-02T00:00:00Z_2020-11-12T00:00:00Z/1.json")
+    #
+    # print judge_file_exist(
+    #     "/home/qiubing/github/sponsor/user/issue/calebporzio/2020-09-02T00:00:00Z_2020-11-12T00:00:00Z/")
+    #
+    # print os.listdir("/home/qiubing/github/sponsor/user/issue/calebporzio/2020-09-02T00:00:00Z_2020-11-12T00:00:00Z")
+    # print os.listdir("/home/qiubing/github/sponsor/user/issue/calebporzio/2020-09-02T00:00:00Z_2020-11-12T00:00:00Z/1.json")
+
+    # g = os.walk(r"/home/qiubing/github/sponsor/user/issue/calebporzio/2017-09-01T00:00:00Z_2018-09-01T00:00:00Z/1.json")
+    #
+    # for path, dir_list, file_list in g:
+    #     for file_name in file_list:
+    #         print(os.path.join(path, file_name))
+    print read_all_filename_in_directory("/home/qiubing/github/sponsor/user/issue")

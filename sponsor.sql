@@ -54,21 +54,19 @@ CREATE TABLE
 IF
 	NOT EXISTS `github_sponsorships_as_maintainer` (
 		`login` VARCHAR(100) NOT NULL,
-		`sponsor_login` VARCHAR(100) NOT NULL,
-		`flag` INT,     -- 0 is user, 1 is organization
-	    `created_at` datetime,
-		PRIMARY KEY ( `login`,`sponsor_login` )
+		`sponsor_login` VARCHAR(100),
+		`flag` INT,     -- 0 is user, 1 is organization, 2 is private
+	    `created_at` datetime
 	)ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- create table: github_sponsorships_as_sponsor
 CREATE TABLE
 IF
 	NOT EXISTS `github_sponsorships_as_sponsor` (
-		`login` VARCHAR(100) NOT NULL,
-		`sponsor_login` VARCHAR(100) NOT NULL,
-		`flag` INT,     -- 0 is user, 1 is organization
-	    `created_at` datetime,
-		PRIMARY KEY ( `login`,`sponsor_login` )
+		`slug` VARCHAR(100),
+		`sponsor_login` VARCHAR(100),
+		`flag` INT,     -- 0 is user, 1 is organization, 2 is private, 3 is unknown
+	    `created_at` datetime
 	)ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- create table: github_user_commits_per_day
