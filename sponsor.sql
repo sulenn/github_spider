@@ -70,3 +70,85 @@ IF
 	    `created_at` datetime,
 		PRIMARY KEY ( `login`,`sponsor_login` )
 	)ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- create table: github_user_commits_per_day
+CREATE TABLE
+IF
+	NOT EXISTS `github_user_commits_per_day` (
+		`login` VARCHAR(100) NOT NULL,
+		`date` VARCHAR(100) NOT NULL,
+		`weekday` INT,
+	    `contribution_count` INT,
+		PRIMARY KEY ( `login`,`date` )
+	)ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- create table: github_user_issue
+CREATE TABLE
+IF
+	NOT EXISTS `github_user_issue` (
+		`issue_database_id` INT,
+		`login` VARCHAR(100) NOT NULL,
+	    `created_at` datetime,
+		`title` TEXT,
+		PRIMARY KEY ( `issue_database_id` )
+	)ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- create table: github_user_pr
+CREATE TABLE
+IF
+	NOT EXISTS `github_user_pr` (
+		`pr_database_id` INT,
+		`login` VARCHAR(100) NOT NULL,
+	    `created_at` datetime,
+		`title` TEXT,
+		PRIMARY KEY ( `pr_database_id` )
+	)ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- create table: github_user_pr_review
+CREATE TABLE
+IF
+	NOT EXISTS `github_user_pr_review` (
+		`pr_database_id` INT,
+		`login` VARCHAR(100) NOT NULL,
+	    `created_at` datetime,
+		`title` TEXT,
+		PRIMARY KEY ( `pr_database_id` )
+	)ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- create table: github_repository
+CREATE TABLE
+IF
+	NOT EXISTS `github_repository` (
+		`re_database_id` INT,
+		`login` VARCHAR(100) NOT NULL,
+		`name` VARCHAR(100) NOT NULL,
+	    `created_at` datetime,
+		PRIMARY KEY ( `re_database_id` )
+	)ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- create table: github_commit_comment
+CREATE TABLE
+IF
+	NOT EXISTS `github_commit_comment` (
+		`comm_database_id` INT,
+		`login` VARCHAR(100) NOT NULL,
+	    `created_at` datetime,
+		`updated_at` datetime,
+		`body` TEXT,
+		`commit_oid` VARCHAR(100) NOT NULL,
+		PRIMARY KEY ( `comm_database_id` )
+	)ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+-- create table: github_issue_comment
+CREATE TABLE
+IF
+	NOT EXISTS `github_issue_comment` (
+		`comm_database_id` INT,
+		`login` VARCHAR(100) NOT NULL,
+	    `created_at` datetime,
+		`updated_at` datetime,
+		`body` TEXT,
+		`issue_login` VARCHAR(100) NOT NULL,
+		`issue_database_id` INT,
+		PRIMARY KEY ( `comm_database_id` )
+	)ENGINE=InnoDB DEFAULT CHARSET=utf8;

@@ -247,3 +247,79 @@ class writeGithubSponsorListingTiersThread(threading.Thread):
             db.close()
         except Exception as e:
             print(e)
+
+# write github user sponsorships as maintainer
+def writeGithubSponsorshipsAsMaintainerTiers(path, sql):
+    global base_path
+    base_path = path
+    workQueue = Queue.Queue()
+
+    # create database connection
+    db = base.connectMysqlDB(config)
+    cur = db.cursor()
+
+    # read all the repos
+    unhandled_tasks = []
+    cur.execute(sql)
+    items = cur.fetchall()
+    for item in items:
+        unhandled_tasks.append({"login": item[0]})
+    print "finish reading database"
+    print "%d tasks left for handling" % (len(unhandled_tasks))
+
+    # close this database connection
+    cur.close()
+    db.close()
+
+    if len(unhandled_tasks) == 0:
+        print "finish"
+        return
+
+    for task in unhandled_tasks:
+        workQueue.put_nowait(task)
+
+    for _ in range(THREAD_NUM):
+        writeGithubSponsorListingTiersThread(workQueue).start()
+    workQueue.join()
+
+    print "finish"
+
+class writeGithubSponsorshipsAsMaintainerThread(threading.Thread):
+    def __init__(self, q):
+        threading.Thread.__init__(self)
+        self.q = q
+    def run(self):
+        work = self.q.get(timeout=0)
+        print "the number of work in queue: " + str(self.q.qsize())
+
+        login = work["login"]
+        # get db connection
+        db = base.connectMysqlDB(config, autocommit=False)
+        cur = db.cursor()
+
+        # read data from file
+        try:
+            # TODO:read all file in directory
+            file = base_path + "/" + login + ".json"
+            text = base.get_info_from_file(file)
+            if text is False:
+                print "file not existed: " + file
+            else:
+                obj = json.loads(text)
+                print login + " ~~~~~~~~~ has " + str(obj["data"]["user"]["sponsorsListing"]["tiers"]["totalCount"]) + " tiers"
+                count = 1
+                for edge in obj["data"]["user"]["sponsorsListing"]["tiers"]["edges"]:
+                    cur.execute("insert into github_sponsor_listing_tiers "
+                                "(login, slug, monthly_price_in_cents, monthly_price_in_dollars, name, created_at, updated_at, description) "
+                                "values (%s, %s, %s, %s, %s, %s, %s, %s)",
+                                (obj["data"]["user"]["login"], obj["data"]["user"]["sponsorsListing"]["slug"], edge["node"]["monthlyPriceInCents"],
+                                 edge["node"]["monthlyPriceInDollars"], edge["node"]["name"], base.time_handler(edge["node"]["createdAt"]),
+                                 base.time_handler(edge["node"]["updatedAt"]), edge["node"]["description"]))
+                    db.commit()
+                    print "the " + str(count) + "th tier data commit into dababase success!!"
+                    count += 1
+            self.q.task_done()
+            cur.close()
+            db.close()
+        except Exception as e:
+            print(e)
