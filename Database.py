@@ -1,21 +1,13 @@
 # encoding=utf8
 # crawl missed issue comments in mongodb
 
-import time
 import threading
 import Queue
-import urllib
 
-import MySQLdb
 import yaml as yaml
-import urllib2
 import json
-import datetime
 from utils import base
-from datetime import datetime, timedelta
-import requests
 import os
-
 
 # define some global things
 # db config file
@@ -34,7 +26,7 @@ for token in github_tokens:
     sleep_time_tokens.setdefault(token, -1)
 
 # write github user info
-def writeGithubUser(path):
+def writeGithubUser(path, sql):
     global base_path
     base_path = path
     workQueue = Queue.Queue()
@@ -45,9 +37,7 @@ def writeGithubUser(path):
 
     # read all the repos
     unhandled_tasks = []
-    cur.execute("select login "
-                "from init_user "
-                "WHERE login NOT IN (SELECT login from github_user)")
+    cur.execute(sql)
     items = cur.fetchall()
     for item in items:
         unhandled_tasks.append({"login": item[0]})

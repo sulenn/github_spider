@@ -1,28 +1,19 @@
 # encoding=utf8
 # crawl missed issue comments in mongodb
 
-import time
 import threading
 import Queue
-import urllib
 
-import MySQLdb
 import yaml as yaml
-import urllib2
 import json
-import datetime
 from utils import base
-from datetime import datetime, timedelta
 import requests
-from utils import queries
-from utils import paths
-
 
 # define some global things
 # db config file
 f = open('config.yaml', 'r')
 config = yaml.load(f.read(), Loader=yaml.BaseLoader)
-THREAD_NUM = 1
+THREAD_NUM = 5
 base_path = ""
 query = ""
 start_time = ""
@@ -85,32 +76,34 @@ class crawlCommonThread(threading.Thread):
         print "the number of work in queue: " + str(self.q.qsize())
 
         login = work["login"]
-        # get a suitable token and combine header
-        github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
-        headers = {
-            'Authorization': 'Bearer ' + github_token,
-            'Content-Type': 'application/json'
-        }
-        # print "headers is: " + str(headers)
-        values = {"query": query % (login), "variables": {}}
-        try:
-            response = requests.post(url=url, headers=headers, json=values)
-            response_json = response.json()
-            print("response.status_code: " + str(response.status_code))
-            if response.status_code != 200:
-                print("request error at: ")
-            # 写入文件
-            filename = base_path + "/" + login + ".json"
-            flag = base.generate_file(filename, json.dumps(response_json))
-            if flag is True:
-                print "create file successfully: " + filename
-            elif flag is False:
-                print "file is already existed: " + filename
-            else:
-                print "create file failed: " + flag + " filename: " + filename
-            self.q.task_done()
-        except Exception as e:
-            print(e)
+        while True:
+            # get a suitable token and combine header
+            github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
+            headers = {
+                'Authorization': 'Bearer ' + github_token,
+                'Content-Type': 'application/json'
+            }
+            # print "headers is: " + str(headers)
+            values = {"query": query % (login), "variables": {}}
+            try:
+                response = requests.post(url=url, headers=headers, json=values)
+                if base.judge_http_response(response) is False:
+                    continue
+                response_json = response.json()
+                # 写入文件
+                filename = base_path + "/" + login + ".json"
+                flag = base.generate_file(filename, json.dumps(response_json))
+                if flag is True:
+                    print "create file successfully: " + filename
+                elif flag is False:
+                    print "file is already existed: " + filename
+                else:
+                    print "create file failed: " + flag + " filename: " + filename
+                self.q.task_done()
+                return
+            except Exception as e:
+                print(e)
+                continue
 
 # crawl sponsorships as maintainer
 def crawlSponsorshipsAsMaintainer(p, q, sql):

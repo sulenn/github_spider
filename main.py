@@ -2,15 +2,32 @@
 import GraphQL, Database
 from utils import paths
 from utils import queries
+from utils import base
 
 start_time = ["2017-09-01T00:00:00Z", "2018-09-02T00:00:00Z", "2019-09-02T00:00:00Z", "2020-09-02T00:00:00Z"]
 end_time = ["2018-09-01T00:00:00Z", "2019-09-01T00:00:00Z", "2020-09-01T00:00:00Z", "2020-11-12T00:00:00Z"]
 
+# supply github_user table data by cycling the procedure
+# 1. get github_user table data from github_sponsorships_as_sponsor table
+# 2. get github_sponsorships_as_sponsor table data from github_user table
+def cycle_supply_user_data_by_sponsorships_as_sponsor():
+    while True:
+        # crawl user data, save json file and write database
+        sql_for_login = "select distinct login \
+                            from github_sponsorships_as_sponsor \
+                            WHERE login NOT IN (SELECT login from github_user)"
+        if not base.judge_sql_result(sql_for_login):
+            print "no more login to crawl"
+            break
+        GraphQL.crawlCommon(paths.github_user_info, queries.query_github_user_info, sql_for_login)
+        Database.writeGithubUser(paths.github_user_info, sql_for_login)
+
 if __name__ == "__main__":
-    # handle github user info
-    # sql_for_user = "select login \
-    #                 from init_user \
-    #                 WHERE login NOT IN (SELECT login from github_user)"
+    cycle_supply_user_data_by_sponsorships_as_sponsor()
+    # # handle github user info
+    # sql_for_user = "select sponsor_login \
+    #                 from github_sponsorships_as_maintainer \
+    #                 WHERE sponsor_login NOT IN (SELECT login from github_user)"
     # GraphQL.crawlGithubUser(paths.github_user_info, queries.query_github_user_info, sql_for_user)
     # Database.writeGithubUser(paths.github_user_info)
 
@@ -102,10 +119,10 @@ if __name__ == "__main__":
     #                              sql_for_user_commit_comment)
     # Database.writeUserCommitComment(paths.github_user_commit_comments, sql_for_user_commit_comment)
 
-    # handle github user issue comment
-    sql_for_user_issue_comment = "select login \
-                                        from init_user \
-                                        WHERE login NOT IN (SELECT DISTINCT login from github_issue_comment)"
-    GraphQL.crawlUserIssueComment(paths.github_user_issue_comments, queries.query_github_user_issue_comments,
-                                 sql_for_user_issue_comment)
-    Database.writeUserIssueComment(paths.github_user_issue_comments, sql_for_user_issue_comment)
+    # # handle github user issue comment
+    # sql_for_user_issue_comment = "select login \
+    #                                     from init_user \
+    #                                     WHERE login NOT IN (SELECT DISTINCT login from github_issue_comment)"
+    # GraphQL.crawlUserIssueComment(paths.github_user_issue_comments, queries.query_github_user_issue_comments,
+    #                              sql_for_user_issue_comment)
+    # Database.writeUserIssueComment(paths.github_user_issue_comments, sql_for_user_issue_comment)

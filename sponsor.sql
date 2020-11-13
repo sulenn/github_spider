@@ -63,10 +63,12 @@ IF
 CREATE TABLE
 IF
 	NOT EXISTS `github_sponsorships_as_sponsor` (
+	    `login` VARCHAR(100),
 		`slug` VARCHAR(100),
 		`sponsor_login` VARCHAR(100),
 		`flag` INT,     -- 0 is user, 1 is organization, 2 is private, 3 is unknown
-	    `created_at` datetime
+	    `created_at` datetime,
+	    PRIMARY KEY ( `login`,`sponsor_login` )
 	)ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- create table: github_user_commits_per_day

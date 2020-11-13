@@ -4,6 +4,9 @@ import json
 from datetime import datetime, timedelta
 import time
 import MySQLdb
+import yaml
+
+config_path = "/home/qiubing/PycharmProjects/spider-python/config.yaml"
 
 # if the file or directory is exited, return True, or False
 def judge_file_exist(filename):
@@ -76,7 +79,46 @@ def read_all_filename_in_directory(path):
             files_path.append(os.path.join(path, file_name))
     return files_path
 
+# return unix time
+def time_string_to_timestamp(t):
+    time_Array = time.strptime(t, "%Y-%m-%d %H:%M:%S")
+    time_stamp = time.mktime(time_Array)
+    return time_stamp
 
+# return unix time
+def datetime_to_timestamp(t):
+    time_tuple = t.timetuple()
+    time_stamp = time.mktime(time_tuple)
+    return time_stamp
+
+# input unix time
+def timestamp_to_time(timestamp):
+    time_local = time.localtime(timestamp)
+    dt = time.strftime("%Y-%m-%d %H:%M:%S", time_local)
+    return dt
+
+def read_database_config():
+    f = open(config_path, 'r')
+    config = yaml.load(f.read(), Loader=yaml.BaseLoader)
+    return config
+
+# judge the result of sql is null
+def judge_sql_result(sql):
+    # create database connection
+    db = connectMysqlDB(read_database_config())
+    cur = db.cursor()
+
+    # read all the repos
+    cur.execute(sql)
+    items = cur.fetchall()
+
+    # close this database connection
+    cur.close()
+    db.close()
+    if len(items) == 0:
+        return False
+    else:
+        return True
 
 def connectMysqlDB(config, autocommit = True):
 
