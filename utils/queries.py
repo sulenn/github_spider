@@ -433,10 +433,10 @@ query_github_user_repositories = """
 
 query_github_user_commit_comments = """
             query {
-                user(login:"%d") {
+                user(login:"%s") {
                     login
                     databaseId
-                    commitComments(first:100) {
+                    commitComments(first:100%s) {
                         totalCount
                         pageInfo {
                             endCursor
@@ -475,7 +475,7 @@ query_github_user_issue_comments = """
                 user(login:"%s") {
                     login
                     databaseId
-                    issueComments(first:100) {
+                    issueComments(first:100%s) {
                         totalCount
                         pageInfo {
                             endCursor

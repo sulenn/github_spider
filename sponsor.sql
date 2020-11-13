@@ -117,11 +117,11 @@ IF
 CREATE TABLE
 IF
 	NOT EXISTS `github_repository` (
-		`re_database_id` INT,
+		`repo_database_id` INT,
 		`login` VARCHAR(100) NOT NULL,
 		`name` VARCHAR(100) NOT NULL,
 	    `created_at` datetime,
-		PRIMARY KEY ( `re_database_id` )
+		PRIMARY KEY ( `repo_database_id` )
 	)ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- create table: github_commit_comment
@@ -132,7 +132,6 @@ IF
 		`login` VARCHAR(100) NOT NULL,
 	    `created_at` datetime,
 		`updated_at` datetime,
-		`body` TEXT,
 		`commit_oid` VARCHAR(100) NOT NULL,
 		PRIMARY KEY ( `comm_database_id` )
 	)ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -145,8 +144,7 @@ IF
 		`login` VARCHAR(100) NOT NULL,
 	    `created_at` datetime,
 		`updated_at` datetime,
-		`body` TEXT,
-		`issue_login` VARCHAR(100) NOT NULL,
+		`issue_login` VARCHAR(100),
 		`issue_database_id` INT,
 		PRIMARY KEY ( `comm_database_id` )
 	)ENGINE=InnoDB DEFAULT CHARSET=utf8;

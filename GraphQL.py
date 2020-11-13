@@ -498,7 +498,7 @@ class crawlUserPullRequestsThread(threading.Thread):
         while True:
             # get a suitable token and combine header
             github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
-            print github_token
+            # print github_token
             headers = {
                 'Authorization': 'Bearer ' + github_token,
                 'Content-Type': 'application/json'
@@ -521,6 +521,433 @@ class crawlUserPullRequestsThread(threading.Thread):
                     print "create file failed: " + flag + " filename: " + filename
                 if response_json["data"]["user"]["contributionsCollection"]["pullRequestContributions"]["pageInfo"]["hasNextPage"] is True:
                     after_cursor = response_json["data"]["user"]["contributionsCollection"]["pullRequestContributions"]["pageInfo"]["endCursor"]
+                    count += 1
+                    continue
+            except Exception as e:
+                print(e)
+                continue
+            break
+        self.q.task_done()
+
+# crawl the recently all of pull request contribution
+def crawlUserPullRequestReview(p, q, sql, time1, time2):
+    global base_path
+    global query
+    global start_time
+    global end_time
+    base_path = p
+    query = q
+    start_time = time1
+    end_time = time2
+    workQueue = Queue.Queue()
+
+    # create database connection
+    db = base.connectMysqlDB(config)
+    cur = db.cursor()
+
+    # read all the repos
+    unhandled_tasks = []
+    cur.execute(sql)
+    items = cur.fetchall()
+    for item in items:
+        unhandled_tasks.append({"login": item[0]})
+    print "finish reading database"
+    print "%d tasks left for handling" % (len(unhandled_tasks))
+
+    # close this database connection
+    cur.close()
+    db.close()
+
+    if len(unhandled_tasks) == 0:
+        print "finish"
+        return
+
+    for task in unhandled_tasks:
+        workQueue.put_nowait(task)
+
+    for _ in range(THREAD_NUM):
+        crawlUserPullRequestReviewThread(workQueue).start()
+    workQueue.join()
+
+    print "finish"
+
+class crawlUserPullRequestReviewThread(threading.Thread):
+    def __init__(self, q):
+        threading.Thread.__init__(self)
+        self.q = q
+    def run(self):
+        work = self.q.get(timeout=0)
+        print "the number of work in queue: " + str(self.q.qsize())
+
+        login = work["login"]
+        count = 1
+        after_cursor = ""
+        while True:
+            # get a suitable token and combine header
+            github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
+            # print github_token
+            headers = {
+                'Authorization': 'Bearer ' + github_token,
+                'Content-Type': 'application/json'
+            }
+            # print "headers is: " + str(headers)
+            values = {"query": query % (login, start_time, end_time, after_cursor), "variables": {}}
+            try:
+                response = requests.post(url=url, headers=headers, json=values)
+                if base.judge_http_response(response) is False:
+                    continue
+                response_json = response.json()
+                # 写入文件
+                filename = base_path + "/" + login + "/" + start_time + "_" + end_time + "/" + str(count) + ".json"
+                flag = base.generate_file(filename, json.dumps(response_json))
+                if flag is True:
+                    print "create file successfully: " + filename
+                elif flag is False:
+                    print "file is already existed: " + filename
+                else:
+                    print "create file failed: " + flag + " filename: " + filename
+                if response_json["data"]["user"]["contributionsCollection"]["pullRequestReviewContributions"]["pageInfo"]["hasNextPage"] is True:
+                    after_cursor = response_json["data"]["user"]["contributionsCollection"]["pullRequestReviewContributions"]["pageInfo"]["endCursor"]
+                    count += 1
+                    continue
+            except Exception as e:
+                print(e)
+                continue
+            break
+        self.q.task_done()
+
+# crawl the recently all of pull request review contribution
+def crawlUserPullRequestReview(p, q, sql, time1, time2):
+    global base_path
+    global query
+    global start_time
+    global end_time
+    base_path = p
+    query = q
+    start_time = time1
+    end_time = time2
+    workQueue = Queue.Queue()
+
+    # create database connection
+    db = base.connectMysqlDB(config)
+    cur = db.cursor()
+
+    # read all the repos
+    unhandled_tasks = []
+    cur.execute(sql)
+    items = cur.fetchall()
+    for item in items:
+        unhandled_tasks.append({"login": item[0]})
+    print "finish reading database"
+    print "%d tasks left for handling" % (len(unhandled_tasks))
+
+    # close this database connection
+    cur.close()
+    db.close()
+
+    if len(unhandled_tasks) == 0:
+        print "finish"
+        return
+
+    for task in unhandled_tasks:
+        workQueue.put_nowait(task)
+
+    for _ in range(THREAD_NUM):
+        crawlUserPullRequestReviewThread(workQueue).start()
+    workQueue.join()
+
+    print "finish"
+
+class crawlUserPullRequestReviewThread(threading.Thread):
+    def __init__(self, q):
+        threading.Thread.__init__(self)
+        self.q = q
+    def run(self):
+        work = self.q.get(timeout=0)
+        print "the number of work in queue: " + str(self.q.qsize())
+
+        login = work["login"]
+        count = 1
+        after_cursor = ""
+        while True:
+            # get a suitable token and combine header
+            github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
+            # print github_token
+            headers = {
+                'Authorization': 'Bearer ' + github_token,
+                'Content-Type': 'application/json'
+            }
+            # print "headers is: " + str(headers)
+            values = {"query": query % (login, start_time, end_time, after_cursor), "variables": {}}
+            try:
+                response = requests.post(url=url, headers=headers, json=values)
+                if base.judge_http_response(response) is False:
+                    continue
+                response_json = response.json()
+                # 写入文件
+                filename = base_path + "/" + login + "/" + start_time + "_" + end_time + "/" + str(count) + ".json"
+                flag = base.generate_file(filename, json.dumps(response_json))
+                if flag is True:
+                    print "create file successfully: " + filename
+                elif flag is False:
+                    print "file is already existed: " + filename
+                else:
+                    print "create file failed: " + flag + " filename: " + filename
+                if response_json["data"]["user"]["contributionsCollection"]["pullRequestReviewContributions"]["pageInfo"]["hasNextPage"] is True:
+                    after_cursor = response_json["data"]["user"]["contributionsCollection"]["pullRequestReviewContributions"]["pageInfo"]["endCursor"]
+                    count += 1
+                    continue
+            except Exception as e:
+                print(e)
+                continue
+            break
+        self.q.task_done()
+
+# crawl the recently all of repository contribution
+def crawlUserRepository(p, q, sql, time1, time2):
+    global base_path
+    global query
+    global start_time
+    global end_time
+    base_path = p
+    query = q
+    start_time = time1
+    end_time = time2
+    workQueue = Queue.Queue()
+
+    # create database connection
+    db = base.connectMysqlDB(config)
+    cur = db.cursor()
+
+    # read all the repos
+    unhandled_tasks = []
+    cur.execute(sql)
+    items = cur.fetchall()
+    for item in items:
+        unhandled_tasks.append({"login": item[0]})
+    print "finish reading database"
+    print "%d tasks left for handling" % (len(unhandled_tasks))
+
+    # close this database connection
+    cur.close()
+    db.close()
+
+    if len(unhandled_tasks) == 0:
+        print "finish"
+        return
+
+    for task in unhandled_tasks:
+        workQueue.put_nowait(task)
+
+    for _ in range(THREAD_NUM):
+        crawlUserRepositoryThread(workQueue).start()
+    workQueue.join()
+
+    print "finish"
+
+class crawlUserRepositoryThread(threading.Thread):
+    def __init__(self, q):
+        threading.Thread.__init__(self)
+        self.q = q
+    def run(self):
+        work = self.q.get(timeout=0)
+        print "the number of work in queue: " + str(self.q.qsize())
+
+        login = work["login"]
+        count = 1
+        after_cursor = ""
+        while True:
+            # get a suitable token and combine header
+            github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
+            # print github_token
+            headers = {
+                'Authorization': 'Bearer ' + github_token,
+                'Content-Type': 'application/json'
+            }
+            # print "headers is: " + str(headers)
+            values = {"query": query % (login, start_time, end_time, after_cursor), "variables": {}}
+            try:
+                response = requests.post(url=url, headers=headers, json=values)
+                if base.judge_http_response(response) is False:
+                    continue
+                response_json = response.json()
+                # 写入文件
+                filename = base_path + "/" + login + "/" + start_time + "_" + end_time + "/" + str(count) + ".json"
+                flag = base.generate_file(filename, json.dumps(response_json))
+                if flag is True:
+                    print "create file successfully: " + filename
+                elif flag is False:
+                    print "file is already existed: " + filename
+                else:
+                    print "create file failed: " + flag + " filename: " + filename
+                if response_json["data"]["user"]["contributionsCollection"]["repositoryContributions"]["pageInfo"]["hasNextPage"] is True:
+                    after_cursor = response_json["data"]["user"]["contributionsCollection"]["repositoryContributions"]["pageInfo"]["endCursor"]
+                    count += 1
+                    continue
+            except Exception as e:
+                print(e)
+                continue
+            break
+        self.q.task_done()
+
+# crawl user commit comment
+def crawlUserCommitComment(p, q, sql):
+    global base_path
+    global query
+    base_path = p
+    query = q
+    workQueue = Queue.Queue()
+
+    # create database connection
+    db = base.connectMysqlDB(config)
+    cur = db.cursor()
+
+    # read all the repos
+    unhandled_tasks = []
+    cur.execute(sql)
+    items = cur.fetchall()
+    for item in items:
+        unhandled_tasks.append({"login": item[0]})
+    print "finish reading database"
+    print "%d tasks left for handling" % (len(unhandled_tasks))
+
+    # close this database connection
+    cur.close()
+    db.close()
+
+    if len(unhandled_tasks) == 0:
+        print "finish"
+        return
+
+    for task in unhandled_tasks:
+        workQueue.put_nowait(task)
+
+    for _ in range(THREAD_NUM):
+        crawlUserCommitCommentThread(workQueue).start()
+    workQueue.join()
+
+    print "finish"
+
+class crawlUserCommitCommentThread(threading.Thread):
+    def __init__(self, q):
+        threading.Thread.__init__(self)
+        self.q = q
+    def run(self):
+        work = self.q.get(timeout=0)
+        print "the number of work in queue: " + str(self.q.qsize())
+
+        login = work["login"]
+        count = 1
+        after_cursor = ""
+        while True:
+            # get a suitable token and combine header
+            github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
+            # print github_token
+            headers = {
+                'Authorization': 'Bearer ' + github_token,
+                'Content-Type': 'application/json'
+            }
+            # print "headers is: " + str(headers)
+            values = {"query": query % (login, after_cursor), "variables": {}}
+            try:
+                response = requests.post(url=url, headers=headers, json=values)
+                if base.judge_http_response(response) is False:
+                    continue
+                response_json = response.json()
+                # 写入文件
+                filename = base_path + "/" + login + "/" + str(count) + ".json"
+                flag = base.generate_file(filename, json.dumps(response_json))
+                if flag is True:
+                    print "create file successfully: " + filename
+                elif flag is False:
+                    print "file is already existed: " + filename
+                else:
+                    print "create file failed: " + flag + " filename: " + filename
+                if response_json["data"]["user"]["commitComments"]["pageInfo"]["hasNextPage"] is True:
+                    after_cursor = ", after:" + "\"" + response_json["data"]["user"]["commitComments"]["pageInfo"]["endCursor"] + "\""
+                    count += 1
+                    continue
+            except Exception as e:
+                print(e)
+                continue
+            break
+        self.q.task_done()
+
+# crawl user issue comment
+def crawlUserIssueComment(p, q, sql):
+    global base_path
+    global query
+    base_path = p
+    query = q
+    workQueue = Queue.Queue()
+
+    # create database connection
+    db = base.connectMysqlDB(config)
+    cur = db.cursor()
+
+    # read all the repos
+    unhandled_tasks = []
+    cur.execute(sql)
+    items = cur.fetchall()
+    for item in items:
+        unhandled_tasks.append({"login": item[0]})
+    print "finish reading database"
+    print "%d tasks left for handling" % (len(unhandled_tasks))
+
+    # close this database connection
+    cur.close()
+    db.close()
+
+    if len(unhandled_tasks) == 0:
+        print "finish"
+        return
+
+    for task in unhandled_tasks:
+        workQueue.put_nowait(task)
+
+    for _ in range(THREAD_NUM):
+        crawlUserIssueCommentThread(workQueue).start()
+    workQueue.join()
+
+    print "finish"
+
+class crawlUserIssueCommentThread(threading.Thread):
+    def __init__(self, q):
+        threading.Thread.__init__(self)
+        self.q = q
+    def run(self):
+        work = self.q.get(timeout=0)
+        print "the number of work in queue: " + str(self.q.qsize())
+
+        login = work["login"]
+        count = 1
+        after_cursor = ""
+        while True:
+            # get a suitable token and combine header
+            github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
+            # print github_token
+            headers = {
+                'Authorization': 'Bearer ' + github_token,
+                'Content-Type': 'application/json'
+            }
+            # print "headers is: " + str(headers)
+            values = {"query": query % (login, after_cursor), "variables": {}}
+            try:
+                response = requests.post(url=url, headers=headers, json=values)
+                if base.judge_http_response(response) is False:
+                    continue
+                response_json = response.json()
+                # 写入文件
+                filename = base_path + "/" + login + "/" + str(count) + ".json"
+                flag = base.generate_file(filename, json.dumps(response_json))
+                if flag is True:
+                    print "create file successfully: " + filename
+                elif flag is False:
+                    print "file is already existed: " + filename
+                else:
+                    print "create file failed: " + flag + " filename: " + filename
+                if response_json["data"]["user"]["issueComments"]["pageInfo"]["hasNextPage"] is True:
+                    after_cursor = ", after:" + "\"" + response_json["data"]["user"]["issueComments"]["pageInfo"]["endCursor"] + "\""
                     count += 1
                     continue
             except Exception as e:
