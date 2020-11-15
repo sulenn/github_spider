@@ -3,6 +3,10 @@ import GraphQL, Database
 from utils import paths
 from utils import queries
 from utils import base
+import logging
+
+# load logger
+base.setup_logging(base.logging_path, logging.DEBUG)
 
 start_time = ["2017-09-01T00:00:00Z", "2018-09-02T00:00:00Z", "2019-09-02T00:00:00Z", "2020-09-02T00:00:00Z"]
 end_time = ["2018-09-01T00:00:00Z", "2019-09-01T00:00:00Z", "2020-09-01T00:00:00Z", "2020-11-12T00:00:00Z"]
@@ -10,20 +14,70 @@ end_time = ["2018-09-01T00:00:00Z", "2019-09-01T00:00:00Z", "2020-09-01T00:00:00
 # supply github_user table data by cycling the procedure
 # 1. get github_user table data from github_sponsorships_as_sponsor table
 # 2. get github_sponsorships_as_sponsor table data from github_user table
-def cycle_supply_user_data_by_sponsorships_as_sponsor():
+# 3. get github_user table data from github_sponsorships_as_maintainer table
+# 4. get github_sponsorships_as_maintainer table fata from github_user table
+def cycle_supply_user_data_by_sponsorships_as_sponsor_and_maintainer():
     while True:
-        # crawl user data, save json file and write database
+        flag1, flag2, flag3, flag4 =0, 0, 0, 0
+        # crawl user data, save json file and write database from github_sponsorships_as_sponsor table
         sql_for_login = "select distinct login \
                             from github_sponsorships_as_sponsor \
-                            WHERE login NOT IN (SELECT login from github_user)"
+                            WHERE flag!=1 and login NOT IN (SELECT login from github_user)"
         if not base.judge_sql_result(sql_for_login):
-            print "no more login to crawl"
-            break
-        GraphQL.crawlCommon(paths.github_user_info, queries.query_github_user_info, sql_for_login)
+            logging.info("no more login to crawl and write from github_sponsorships_as_sponsor")
+            flag1 = 1
+        logging.info("crawl user data, save json file from github_sponsorships_as_sponsor")
+        GraphQL.crawlUser(paths.github_user_info, queries.query_github_user_info, sql_for_login)
+        logging.info("write user database from github_sponsorships_as_sponsor")
         Database.writeGithubUser(paths.github_user_info, sql_for_login)
 
+        # crawl user sponsorships as sponsor data, save json file and write database from github_user table
+        sql_for_sponsorships_as_sponsor = "select distinct login \
+                                            from github_user \
+                                            WHERE spon_sponsor_count!=0 " \
+                                          "AND login NOT IN (SELECT distinct sponsor_login from github_sponsorships_as_sponsor)"
+        if not base.judge_sql_result(sql_for_sponsorships_as_sponsor):
+            logging.info("no more user sponsorships as sponsor data to crawl and write from github_user")
+            flag2 = 1
+        logging.info("crawl user sponsorships as sponsor data, save json file")
+        GraphQL.crawlSponsorshipsAsSponsor(paths.github_user_sponsorships_as_sponsor, queries.query_github_user_sponsorships_as_sponsor_info,
+                                        sql_for_sponsorships_as_sponsor)
+        logging.info("write user sponsorships as sponsor database")
+        Database.writeGithubSponsorshipsAsSponsor(paths.github_user_sponsorships_as_sponsor, sql_for_sponsorships_as_sponsor)
+
+        # crawl user data, save json file and write database from github_sponsorships_as_maintainer
+        sql_for_login_from_maintainer = "select distinct sponsor_login \
+                                    from github_sponsorships_as_maintainer \
+                                    WHERE flag=0 and sponsor_login NOT IN (SELECT login from github_user)"
+        if not base.judge_sql_result(sql_for_login_from_maintainer):
+            logging.info("no more login to crawl and write from github_sponsorships_as_maintainer")
+            flag3 = 1
+        logging.info("crawl user data, save json file from github_sponsorships_as_maintainer")
+        GraphQL.crawlUserForSponsorshipsAsMaintainer(paths.github_user_info, queries.query_github_user_info, sql_for_login_from_maintainer)
+        logging.info("write user database from github_sponsorships_as_maintainer")
+        Database.writeGithubUser(paths.github_user_info, sql_for_login_from_maintainer)
+
+        # crawl user sponsorships as maintainer data, save json file and write database from github_user
+        sql_for_sponsorships_as_maintainer = "select distinct login \
+                                            from github_user \
+                                            WHERE spon_maintainer_count!=0 " \
+                                          "AND login NOT IN (SELECT distinct login from github_sponsorships_as_maintainer)"
+        if not base.judge_sql_result(sql_for_sponsorships_as_maintainer):
+            logging.info("no more user sponsorships as maintainer data to crawl and write from github_user")
+            flag4 = 1
+        logging.info("crawl user sponsorships as maintainer data, save json file")
+        GraphQL.crawlSponsorshipsAsMaintainer(paths.github_user_sponsorships_as_maintainer,
+                                           queries.query_github_user_sponsorships_as_maintainer_info,
+                                           sql_for_sponsorships_as_maintainer)
+        logging.info("write user sponsorships as sponsor database")
+        Database.writeGithubSponsorshipsAsMaintainer(paths.github_user_sponsorships_as_maintainer,
+                                                  sql_for_sponsorships_as_maintainer)
+        if flag1 == 1 and flag2 ==1 and flag3 == 1 and flag4 == 1:
+            logging.info("cycle over!!!!!!!!!!")
+
 if __name__ == "__main__":
-    cycle_supply_user_data_by_sponsorships_as_sponsor()
+    cycle_supply_user_data_by_sponsorships_as_sponsor_and_maintainer()
+
     # # handle github user info
     # sql_for_user = "select sponsor_login \
     #                 from github_sponsorships_as_maintainer \

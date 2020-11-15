@@ -12,8 +12,8 @@ IF
 	NOT EXISTS `github_user` (
 		`login` VARCHAR(100) NOT NULL,
 		`database_id` INT,
-		`name` VARCHAR(100) NOT NULL,
-	    `email` VARCHAR(100) NOT NULL,
+		`name` VARCHAR(100),
+	    `email` VARCHAR(100),
 		`spon_maintainer_count` INT,
 		`spon_sponsor_count` INT,
 	    `created_at` datetime,
@@ -60,13 +60,14 @@ IF
 	)ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 -- create table: github_sponsorships_as_sponsor
+-- if login == sponsor_login, sponsor_login doesn't sponsor others
 CREATE TABLE
 IF
 	NOT EXISTS `github_sponsorships_as_sponsor` (
 	    `login` VARCHAR(100),
 		`slug` VARCHAR(100),
 		`sponsor_login` VARCHAR(100),
-		`flag` INT,     -- 0 is user, 1 is organization, 2 is private, 3 is unknown
+		`flag` INT,     -- 0 is user, 1 is organization, 2 is private, 3 is unknown, 4: sponsor_login didn't have sponsor others
 	    `created_at` datetime,
 	    PRIMARY KEY ( `login`,`sponsor_login` )
 	)ENGINE=InnoDB DEFAULT CHARSET=utf8;

@@ -8,12 +8,15 @@ import yaml as yaml
 import json
 from utils import base
 import requests
+import Database
+import logging
+from requests.exceptions import ConnectionError, ReadTimeout
 
 # define some global things
 # db config file
 f = open('config.yaml', 'r')
 config = yaml.load(f.read(), Loader=yaml.BaseLoader)
-THREAD_NUM = 5
+THREAD_NUM = 10
 base_path = ""
 query = ""
 start_time = ""
@@ -72,40 +75,398 @@ class crawlCommonThread(threading.Thread):
         threading.Thread.__init__(self)
         self.q = q
     def run(self):
-        work = self.q.get(timeout=0)
-        print "the number of work in queue: " + str(self.q.qsize())
+        while not self.q.empty():
+            work = self.q.get()
+            print "the number of work in queue: " + str(self.q.qsize())
 
-        login = work["login"]
-        while True:
-            # get a suitable token and combine header
-            github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
-            headers = {
-                'Authorization': 'Bearer ' + github_token,
-                'Content-Type': 'application/json'
-            }
-            # print "headers is: " + str(headers)
-            values = {"query": query % (login), "variables": {}}
-            try:
-                response = requests.post(url=url, headers=headers, json=values)
-                if base.judge_http_response(response) is False:
+            login = work["login"]
+            while True:
+                # get a suitable token and combine header
+                github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
+                headers = {
+                    'Authorization': 'Bearer ' + github_token,
+                    'Content-Type': 'application/json'
+                }
+                # print "headers is: " + str(headers)
+                values = {"query": query % (login), "variables": {}}
+                try:
+                    response = requests.post(url=url, headers=headers, json=values)
+                    if base.judge_http_response(response) is False:
+                        continue
+                    response_json = response.json()
+                    # 写入文件
+                    filename = base_path + "/" + login + ".json"
+                    flag = base.generate_file(filename, json.dumps(response_json))
+                    if flag is True:
+                        print "create file successfully: " + filename
+                    elif flag is False:
+                        print "file is already existed: " + filename
+                    else:
+                        print "create file failed: " + flag + " filename: " + filename
+                    self.q.task_done()
+                    break
+                except Exception as e:
+                    print(e)
                     continue
-                response_json = response.json()
-                # 写入文件
-                filename = base_path + "/" + login + ".json"
-                flag = base.generate_file(filename, json.dumps(response_json))
-                if flag is True:
-                    print "create file successfully: " + filename
-                elif flag is False:
-                    print "file is already existed: " + filename
-                else:
-                    print "create file failed: " + flag + " filename: " + filename
-                self.q.task_done()
-                return
-            except Exception as e:
-                print(e)
-                continue
 
-# crawl sponsorships as maintainer
+# crawl github user data
+def crawlUser(p, q, sql):
+    global base_path
+    global query
+    base_path = p
+    query = q
+    workQueue = Queue.Queue()
+
+    # create database connection
+    db = base.connectMysqlDB(config)
+    cur = db.cursor()
+
+    # read all the repos
+    unhandled_tasks = []
+    cur.execute(sql)
+    items = cur.fetchall()
+    for item in items:
+        unhandled_tasks.append({"login": item[0]})
+    logging.info("finish reading database")
+    logging.info("%d tasks left for handling" % (len(unhandled_tasks)))
+
+    # close this database connection
+    cur.close()
+    db.close()
+
+    if len(unhandled_tasks) == 0:
+        logging.info("finish")
+        print
+        return
+
+    for task in unhandled_tasks:
+        workQueue.put_nowait(task)
+
+    for _ in range(THREAD_NUM):
+        crawlUserThread(workQueue).start()
+    workQueue.join()
+
+    logging.info("finish")
+
+class crawlUserThread(threading.Thread):
+    def __init__(self, q):
+        threading.Thread.__init__(self)
+        self.q = q
+    def run(self):
+        while not self.q.empty():
+            work = self.q.get()
+            logging.info("the number of work in queue: " + str(self.q.qsize()))
+
+            login = work["login"]
+            while True:
+                # get a suitable token and combine header
+                github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
+                headers = {
+                    'Authorization': 'Bearer ' + github_token,
+                    'Content-Type': 'application/json'
+                }
+                # print "headers is: " + str(headers)
+                values = {"query": query % (login), "variables": {}}
+                try:
+                    response = requests.post(url=url, headers=headers, json=values)
+                    if response.status_code != 200:
+                        logging.error("response.status_code: " + str(response.status_code))
+                        continue
+                    response_json = response.json()
+                    if "errors" in response_json:
+                        logging.error(json.dumps(response_json))
+                        if response_json["errors"][0]["type"] == "NOT_FOUND":
+                            Database.updateGithubSponsorshipsAsSponsor(login, str(base.flag1))
+                            self.q.task_done()
+                            break
+                        continue
+                    # 写入文件
+                    filename = base_path + "/" + login + ".json"
+                    flag = base.generate_file(filename, json.dumps(response_json))
+                    if flag is True:
+                        logging.info("create file successfully: " + filename)
+                    elif flag is False:
+                        logging.warn("file is already existed: " + filename)
+                    else:
+                        logging.warn("create file failed: " + flag + " filename: " + filename)
+                    self.q.task_done()
+                    break
+                except (ConnectionError, ReadTimeout) as e:
+                    logging.error(e)
+                except Exception as e:
+                    logging.error(e)
+                    return
+
+                # crawl github user data
+                def crawlUser(p, q, sql):
+                    global base_path
+                    global query
+                    base_path = p
+                    query = q
+                    workQueue = Queue.Queue()
+
+                    # create database connection
+                    db = base.connectMysqlDB(config)
+                    cur = db.cursor()
+
+                    # read all the repos
+                    unhandled_tasks = []
+                    cur.execute(sql)
+                    items = cur.fetchall()
+                    for item in items:
+                        unhandled_tasks.append({"login": item[0]})
+                    logging.info("finish reading database")
+                    logging.info("%d tasks left for handling" % (len(unhandled_tasks)))
+
+                    # close this database connection
+                    cur.close()
+                    db.close()
+
+                    if len(unhandled_tasks) == 0:
+                        logging.info("finish")
+                        print
+                        return
+
+                    for task in unhandled_tasks:
+                        workQueue.put_nowait(task)
+
+                    for _ in range(THREAD_NUM):
+                        crawlUserThread(workQueue).start()
+                    workQueue.join()
+
+                    logging.info("finish")
+
+                class crawlUserThread(threading.Thread):
+                    def __init__(self, q):
+                        threading.Thread.__init__(self)
+                        self.q = q
+
+                    def run(self):
+                        while not self.q.empty():
+                            work = self.q.get()
+                            logging.info("the number of work in queue: " + str(self.q.qsize()))
+
+                            login = work["login"]
+                            while True:
+                                # get a suitable token and combine header
+                                github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
+                                headers = {
+                                    'Authorization': 'Bearer ' + github_token,
+                                    'Content-Type': 'application/json'
+                                }
+                                # print "headers is: " + str(headers)
+                                values = {"query": query % (login), "variables": {}}
+                                try:
+                                    response = requests.post(url=url, headers=headers, json=values)
+                                    if response.status_code != 200:
+                                        logging.error("response.status_code: " + str(response.status_code))
+                                        continue
+                                    response_json = response.json()
+                                    if "errors" in response_json:
+                                        logging.error(json.dumps(response_json))
+                                        if response_json["errors"][0]["type"] == "NOT_FOUND":
+                                            Database.updateGithubSponsorshipsAsSponsor(login, str(base.flag1))
+                                            self.q.task_done()
+                                            break
+                                        continue
+                                    # 写入文件
+                                    filename = base_path + "/" + login + ".json"
+                                    flag = base.generate_file(filename, json.dumps(response_json))
+                                    if flag is True:
+                                        logging.info("create file successfully: " + filename)
+                                    elif flag is False:
+                                        logging.warn("file is already existed: " + filename)
+                                    else:
+                                        logging.warn("create file failed: " + flag + " filename: " + filename)
+                                    self.q.task_done()
+                                    break
+                                except (ConnectionError, ReadTimeout) as e:
+                                    logging.error(e)
+                                except Exception as e:
+                                    logging.error(e)
+                                    return
+
+                # crawl sponsorships as maintainer
+
+# crawl github user data for sponsorships as maintainer
+def crawlUserForSponsorshipsAsMaintainer(p, q, sql):
+    global base_path
+    global query
+    base_path = p
+    query = q
+    workQueue = Queue.Queue()
+
+    # create database connection
+    db = base.connectMysqlDB(config)
+    cur = db.cursor()
+
+    # read all the repos
+    unhandled_tasks = []
+    cur.execute(sql)
+    items = cur.fetchall()
+    for item in items:
+        unhandled_tasks.append({"login": item[0]})
+    logging.info("finish reading database")
+    logging.info("%d tasks left for handling" % (len(unhandled_tasks)))
+
+    # close this database connection
+    cur.close()
+    db.close()
+
+    if len(unhandled_tasks) == 0:
+        logging.info("finish")
+        print
+        return
+
+    for task in unhandled_tasks:
+        workQueue.put_nowait(task)
+
+    for _ in range(THREAD_NUM):
+        crawlUserForSponsorshipsAsMaintainerThread(workQueue).start()
+    workQueue.join()
+
+    logging.info("finish")
+
+class crawlUserForSponsorshipsAsMaintainerThread(threading.Thread):
+    def __init__(self, q):
+        threading.Thread.__init__(self)
+        self.q = q
+    def run(self):
+        while not self.q.empty():
+            work = self.q.get()
+            logging.info("the number of work in queue: " + str(self.q.qsize()))
+
+            login = work["login"]
+            while True:
+                # get a suitable token and combine header
+                github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
+                headers = {
+                    'Authorization': 'Bearer ' + github_token,
+                    'Content-Type': 'application/json'
+                }
+                # print "headers is: " + str(headers)
+                values = {"query": query % (login), "variables": {}}
+                try:
+                    response = requests.post(url=url, headers=headers, json=values)
+                    if response.status_code != 200:
+                        logging.error("response.status_code: " + str(response.status_code))
+                        continue
+                    response_json = response.json()
+                    if "errors" in response_json:
+                        logging.error(json.dumps(response_json))
+                        if response_json["errors"][0]["type"] == "NOT_FOUND":
+                            Database.updateGithubSponsorshipsAsMaintainer(login, str(base.flag1))
+                            self.q.task_done()
+                            break
+                        continue
+                    # 写入文件
+                    filename = base_path + "/" + login + ".json"
+                    flag = base.generate_file(filename, json.dumps(response_json))
+                    if flag is True:
+                        logging.info("create file successfully: " + filename)
+                    elif flag is False:
+                        logging.warn("file is already existed: " + filename)
+                    else:
+                        logging.warn("create file failed: " + flag + " filename: " + filename)
+                    self.q.task_done()
+                    break
+                except (ConnectionError, ReadTimeout) as e:
+                    logging.error(e)
+                except Exception as e:
+                    logging.error(e)
+                    return
+
+                # crawl github user data
+                def crawlUser(p, q, sql):
+                    global base_path
+                    global query
+                    base_path = p
+                    query = q
+                    workQueue = Queue.Queue()
+
+                    # create database connection
+                    db = base.connectMysqlDB(config)
+                    cur = db.cursor()
+
+                    # read all the repos
+                    unhandled_tasks = []
+                    cur.execute(sql)
+                    items = cur.fetchall()
+                    for item in items:
+                        unhandled_tasks.append({"login": item[0]})
+                    logging.info("finish reading database")
+                    logging.info("%d tasks left for handling" % (len(unhandled_tasks)))
+
+                    # close this database connection
+                    cur.close()
+                    db.close()
+
+                    if len(unhandled_tasks) == 0:
+                        logging.info("finish")
+                        print
+                        return
+
+                    for task in unhandled_tasks:
+                        workQueue.put_nowait(task)
+
+                    for _ in range(THREAD_NUM):
+                        crawlUserThread(workQueue).start()
+                    workQueue.join()
+
+                    logging.info("finish")
+
+                class crawlUserThread(threading.Thread):
+                    def __init__(self, q):
+                        threading.Thread.__init__(self)
+                        self.q = q
+
+                    def run(self):
+                        while not self.q.empty():
+                            work = self.q.get()
+                            logging.info("the number of work in queue: " + str(self.q.qsize()))
+
+                            login = work["login"]
+                            while True:
+                                # get a suitable token and combine header
+                                github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
+                                headers = {
+                                    'Authorization': 'Bearer ' + github_token,
+                                    'Content-Type': 'application/json'
+                                }
+                                # print "headers is: " + str(headers)
+                                values = {"query": query % (login), "variables": {}}
+                                try:
+                                    response = requests.post(url=url, headers=headers, json=values)
+                                    if response.status_code != 200:
+                                        logging.error("response.status_code: " + str(response.status_code))
+                                        continue
+                                    response_json = response.json()
+                                    if "errors" in response_json:
+                                        logging.error(json.dumps(response_json))
+                                        if response_json["errors"][0]["type"] == "NOT_FOUND":
+                                            Database.updateGithubSponsorshipsAsSponsor(login)
+                                            self.q.task_done()
+                                            break
+                                        continue
+                                    # 写入文件
+                                    filename = base_path + "/" + login + ".json"
+                                    flag = base.generate_file(filename, json.dumps(response_json))
+                                    if flag is True:
+                                        logging.info("create file successfully: " + filename)
+                                    elif flag is False:
+                                        logging.warn("file is already existed: " + filename)
+                                    else:
+                                        logging.warn("create file failed: " + flag + " filename: " + filename)
+                                    self.q.task_done()
+                                    break
+                                except (ConnectionError, ReadTimeout) as e:
+                                    logging.error(e)
+                                except Exception as e:
+                                    logging.error(e)
+                                    return
+
+                # crawl sponsorships as maintainer
+
 def crawlSponsorshipsAsMaintainer(p, q, sql):
     global base_path
     global query
@@ -123,15 +484,15 @@ def crawlSponsorshipsAsMaintainer(p, q, sql):
     items = cur.fetchall()
     for item in items:
         unhandled_tasks.append({"login": item[0]})
-    print "finish reading database"
-    print "%d tasks left for handling" % (len(unhandled_tasks))
+    logging.info("finish reading database")
+    logging.info("%d tasks left for handling" % (len(unhandled_tasks)))
 
     # close this database connection
     cur.close()
     db.close()
 
     if len(unhandled_tasks) == 0:
-        print "finish"
+        logging.info("finish")
         return
 
     for task in unhandled_tasks:
@@ -141,50 +502,53 @@ def crawlSponsorshipsAsMaintainer(p, q, sql):
         crawlSponsorshipsAsMaintainerThread(workQueue).start()
     workQueue.join()
 
-    print "finish"
+    logging.info("finish")
 
 class crawlSponsorshipsAsMaintainerThread(threading.Thread):
     def __init__(self, q):
         threading.Thread.__init__(self)
         self.q = q
     def run(self):
-        work = self.q.get(timeout=0)
-        print "the number of work in queue: " + str(self.q.qsize())
+        while not self.q.empty():
+            work = self.q.get(timeout=0)
+            logging.info("the number of work in queue: " + str(self.q.qsize()))
 
-        login = work["login"]
-        after_cursor = ""
-        count = 1
-        # get a suitable token and combine header
-        github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
-        headers = {
-            'Authorization': 'Bearer ' + github_token,
-            'Content-Type': 'application/json'
-        }
-        # print "headers is: " + str(headers)
-        while True:
-            values = {"query": query % (login, after_cursor), "variables": {}}
-            try:
-                response = requests.post(url=url, headers=headers, json=values)
-                response_json = response.json()
-                print("response.status_code: " + str(response.status_code))
-                if response.status_code != 200:
-                    print("request error at: ")
-                # 写入文件
-                filename = base_path + "/" + login + "/" + str(count) + ".json"
-                flag = base.generate_file(filename, json.dumps(response_json))
-                if flag is True:
-                    print "create file successfully: " + filename
-                elif flag is False:
-                    print "file is already existed: " + filename
-                else:
-                    print "create file failed: " + flag + " filename: " + filename
-                if response_json["data"]["user"]["sponsorshipsAsMaintainer"]["pageInfo"]["hasNextPage"] is False:
-                    break
-                after_cursor = response_json["data"]["user"]["sponsorshipsAsMaintainer"]["pageInfo"]["endCursor"]
-                count += 1
-            except Exception as e:
-                print(e)
-        self.q.task_done()
+            login = work["login"]
+            after_cursor = ""
+            count = 1
+            while True:
+                # get a suitable token and combine header
+                github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
+                headers = {
+                    'Authorization': 'Bearer ' + github_token,
+                    'Content-Type': 'application/json'
+                }
+                # print "headers is: " + str(headers)
+                values = {"query": query % (login, after_cursor), "variables": {}}
+                try:
+                    response = requests.post(url=url, headers=headers, json=values)
+                    if base.judge_http_response(response) is False:
+                        continue
+                    response_json = response.json()
+                    # 写入文件
+                    filename = base_path + "/" + login + "/" + str(count) + ".json"
+                    flag = base.generate_file(filename, json.dumps(response_json))
+                    if flag is True:
+                        logging.info("create file successfully: " + filename)
+                    elif flag is False:
+                        logging.warn("file is already existed: " + filename)
+                    else:
+                        logging.info("create file failed: " + flag + " filename: " + filename)
+                    if response_json["data"]["user"]["sponsorshipsAsMaintainer"]["pageInfo"]["hasNextPage"] is False:
+                        break
+                    after_cursor = response_json["data"]["user"]["sponsorshipsAsMaintainer"]["pageInfo"]["endCursor"]
+                    count += 1
+                except (ConnectionError, ReadTimeout) as e:
+                    logging.error(e)
+                except Exception as e:
+                    logging.error(e)
+                    return
+            self.q.task_done()
 
 # crawl sponsorships as sponsor
 def crawlSponsorshipsAsSponsor(p, q, sql):
@@ -204,15 +568,15 @@ def crawlSponsorshipsAsSponsor(p, q, sql):
     items = cur.fetchall()
     for item in items:
         unhandled_tasks.append({"login": item[0]})
-    print "finish reading database"
-    print "%d tasks left for handling" % (len(unhandled_tasks))
+    logging.info("finish reading database")
+    logging.info("%d tasks left for handling" % (len(unhandled_tasks)))
 
     # close this database connection
     cur.close()
     db.close()
 
     if len(unhandled_tasks) == 0:
-        print "finish"
+        logging.info("finish")
         return
 
     for task in unhandled_tasks:
@@ -222,50 +586,53 @@ def crawlSponsorshipsAsSponsor(p, q, sql):
         crawlSponsorshipsAsSponsorThread(workQueue).start()
     workQueue.join()
 
-    print "finish"
+    logging.info("finish")
 
 class crawlSponsorshipsAsSponsorThread(threading.Thread):
     def __init__(self, q):
         threading.Thread.__init__(self)
         self.q = q
     def run(self):
-        work = self.q.get(timeout=0)
-        print "the number of work in queue: " + str(self.q.qsize())
+        while not self.q.empty():
+            work = self.q.get(timeout=0)
+            logging.info("the number of work in queue: " + str(self.q.qsize()))
 
-        login = work["login"]
-        after_cursor = ""
-        count = 1
-        # get a suitable token and combine header
-        github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
-        headers = {
-            'Authorization': 'Bearer ' + github_token,
-            'Content-Type': 'application/json'
-        }
-        # print "headers is: " + str(headers)
-        while True:
-            values = {"query": query % (login, after_cursor), "variables": {}}
-            try:
-                response = requests.post(url=url, headers=headers, json=values)
-                response_json = response.json()
-                print("response.status_code: " + str(response.status_code))
-                if response.status_code != 200:
-                    print("request error at: ")
-                # 写入文件
-                filename = base_path + "/" + login + "/" + str(count) + ".json"
-                flag = base.generate_file(filename, json.dumps(response_json))
-                if flag is True:
-                    print "create file successfully: " + filename
-                elif flag is False:
-                    print "file is already existed: " + filename
-                else:
-                    print "create file failed: " + flag + " filename: " + filename
-                if response_json["data"]["user"]["sponsorshipsAsSponsor"]["pageInfo"]["hasNextPage"] is False:
-                    break
-                after_cursor = response_json["data"]["user"]["sponsorshipsAsSponsor"]["pageInfo"]["endCursor"]
-                count += 1
-            except Exception as e:
-                print(e)
-        self.q.task_done()
+            login = work["login"]
+            after_cursor = ""
+            count = 1
+            while True:
+                # get a suitable token and combine header
+                github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
+                headers = {
+                    'Authorization': 'Bearer ' + github_token,
+                    'Content-Type': 'application/json'
+                }
+                # print "headers is: " + str(headers)
+                values = {"query": query % (login, after_cursor), "variables": {}}
+                try:
+                    response = requests.post(url=url, headers=headers, json=values)
+                    if base.judge_http_response(response) is False:
+                        continue
+                    response_json = response.json()
+                    # 写入文件
+                    filename = base_path + "/" + login + "/" + str(count) + ".json"
+                    flag = base.generate_file(filename, json.dumps(response_json))
+                    if flag is True:
+                        logging.info("create file successfully: " + filename)
+                    elif flag is False:
+                        logging.warn("file is already existed: " + filename)
+                    else:
+                        logging.warn("create file failed: " + flag + " filename: " + filename)
+                    if response_json["data"]["user"]["sponsorshipsAsSponsor"]["pageInfo"]["hasNextPage"] is False:
+                        break
+                    after_cursor = response_json["data"]["user"]["sponsorshipsAsSponsor"]["pageInfo"]["endCursor"]
+                    count += 1
+                except (ConnectionError, ReadTimeout) as e:
+                    logging.error(e)
+                except Exception as e:
+                    logging.error(e)
+                    return
+            self.q.task_done()
 
 # crawl the recently all of commit contribution
 def crawlUserCommits(p, q, sql, time1, time2):

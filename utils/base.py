@@ -5,8 +5,24 @@ from datetime import datetime, timedelta
 import time
 import MySQLdb
 import yaml
+import logging
+import logging.config
 
 config_path = "/home/qiubing/PycharmProjects/spider-python/config.yaml"
+logging_path = "/home/qiubing/PycharmProjects/spider-python/logging.yaml"
+
+# flag0 is user
+flag0 = 0
+# flag1 is organization
+flag1 = 1
+# flag2 is private
+flag2 = 2
+# flag3 is unknown
+flag3 = 3
+# flag4: sponsor_login didn't have sponsor others
+flag4 = 4
+# flag5: login is not existed
+flag5 = 5
 
 # if the file or directory is exited, return True, or False
 def judge_file_exist(filename):
@@ -62,11 +78,11 @@ def get_token(github_tokens, sleep_time_tokens, sleep_gap_token):
 
 def judge_http_response(response):
     if response.status_code != 200:
-        print("response.status_code: " + str(response.status_code))
+        logging.error("response.status_code: " + str(response.status_code))
         return False
     response_json = response.json()
     if "errors" in response_json:
-        print json.dumps(response_json)
+        logging.error(json.dumps(response_json))
         return False
     return True
 
@@ -119,6 +135,15 @@ def judge_sql_result(sql):
         return False
     else:
         return True
+
+def setup_logging(default_path=logging_path, default_level=logging.INFO):
+    path = default_path
+    if os.path.exists(path):
+        with open(path, 'r') as f:
+            config = yaml.load(f)
+            logging.config.dictConfig(config)
+    else:
+        logging.basicConfig(level=default_level)
 
 def connectMysqlDB(config, autocommit = True):
 

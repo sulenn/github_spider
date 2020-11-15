@@ -8,12 +8,13 @@ import yaml as yaml
 import json
 from utils import base
 import os
+import logging
 
 # define some global things
 # db config file
 f = open('config.yaml', 'r')
 config = yaml.load(f.read(), Loader=yaml.BaseLoader)
-THREAD_NUM = 1
+THREAD_NUM = 10
 base_path = ""
 
 # read all the tokens
@@ -41,15 +42,15 @@ def writeGithubUser(path, sql):
     items = cur.fetchall()
     for item in items:
         unhandled_tasks.append({"login": item[0]})
-    print "finish reading database"
-    print "%d tasks left for handling" % (len(unhandled_tasks))
+    logging.info("finish reading database")
+    logging.info("%d tasks left for handling" % (len(unhandled_tasks)))
 
     # close this database connection
     cur.close()
     db.close()
 
     if len(unhandled_tasks) == 0:
-        print "finish"
+        logging.info("finish")
         return
 
     for task in unhandled_tasks:
@@ -59,39 +60,41 @@ def writeGithubUser(path, sql):
         writeGithubUserThread(workQueue).start()
     workQueue.join()
 
-    print "finish"
+    logging.info("finish")
 
 class writeGithubUserThread(threading.Thread):
     def __init__(self, q):
         threading.Thread.__init__(self)
         self.q = q
     def run(self):
-        work = self.q.get(timeout=0)
-        print "the number of work in queue: " + str(self.q.qsize())
+        while not self.q.empty():
+            work = self.q.get()
+            logging.info("the number of work in queue: " + str(self.q.qsize()))
 
-        login = work["login"]
-        # get db connection
-        db = base.connectMysqlDB(config, autocommit=False)
-        cur = db.cursor()
+            login = work["login"]
+            # get db connection
+            db = base.connectMysqlDB(config, autocommit=False)
+            cur = db.cursor()
 
-        # read data from file
-        file = base_path + "/" + login + ".json"
-        text = base.get_info_from_file(file)
-        if text is False:
-            print "file not existed: " + file
-        else:
-            obj = json.loads(text)
-            cur.execute("insert into github_user "
-                        "(database_id, login, name, email,spon_maintainer_count, spon_sponsor_count, created_at, updated_at) "
-                        "values (%s, %s, %s, %s, %s, %s, %s, %s)",
-                        (obj["data"]["user"]["databaseId"], obj["data"]["user"]["login"], obj["data"]["user"]["name"], obj["data"]["user"]["email"],
-                         obj["data"]["user"]["sponsorshipsAsMaintainer"]["totalCount"], obj["data"]["user"]["sponsorshipsAsSponsor"]["totalCount"],
-                         base.time_handler(obj["data"]["user"]["createdAt"]), base.time_handler(obj["data"]["user"]["createdAt"])))
-            db.commit()
-            print login + " ~~~~~~~~~ data commit into dababase success!!"
-        self.q.task_done()
-        cur.close()
-        db.close()
+            # read data from file
+            file = base_path + "/" + login + ".json"
+            text = base.get_info_from_file(file)
+            if text is False:
+                logging.warn("file not existed: " + file)
+            else:
+                obj = json.loads(text)
+                logging.info("writing login data: " + login)
+                cur.execute("insert into github_user "
+                            "(database_id, login, name, email,spon_maintainer_count, spon_sponsor_count, created_at, updated_at) "
+                            "values (%s, %s, %s, %s, %s, %s, %s, %s)",
+                            (obj["data"]["user"]["databaseId"], obj["data"]["user"]["login"], obj["data"]["user"]["name"], obj["data"]["user"]["email"],
+                             obj["data"]["user"]["sponsorshipsAsMaintainer"]["totalCount"], obj["data"]["user"]["sponsorshipsAsSponsor"]["totalCount"],
+                             base.time_handler(obj["data"]["user"]["createdAt"]), base.time_handler(obj["data"]["user"]["createdAt"])))
+                db.commit()
+                logging.info(login + " ~~~~~~~~~ data commit into dababase success!!")
+            self.q.task_done()
+            cur.close()
+            db.close()
 
 # write github user sponsor listing info
 def writeGithubSponsorListing(path, sql):
@@ -255,15 +258,15 @@ def writeGithubSponsorshipsAsMaintainer(path, sql):
     items = cur.fetchall()
     for item in items:
         unhandled_tasks.append({"login": item[0]})
-    print "finish reading database"
-    print "%d tasks left for handling" % (len(unhandled_tasks))
+    logging.info("finish reading database")
+    logging.info("%d tasks left for handling" % (len(unhandled_tasks)))
 
     # close this database connection
     cur.close()
     db.close()
 
     if len(unhandled_tasks) == 0:
-        print "finish"
+        logging.info("finish")
         return
 
     for task in unhandled_tasks:
@@ -273,58 +276,59 @@ def writeGithubSponsorshipsAsMaintainer(path, sql):
         writeGithubSponsorshipsAsMaintainerThread(workQueue).start()
     workQueue.join()
 
-    print "finish"
+    logging.info("finish")
 
 class writeGithubSponsorshipsAsMaintainerThread(threading.Thread):
     def __init__(self, q):
         threading.Thread.__init__(self)
         self.q = q
     def run(self):
-        work = self.q.get(timeout=0)
-        print "the number of work in queue: " + str(self.q.qsize())
+        while not self.q.empty():
+            work = self.q.get(timeout=0)
+            logging.info("the number of work in queue: " + str(self.q.qsize()))
 
-        login = work["login"]
-        # get db connection
-        db = base.connectMysqlDB(config, autocommit=False)
-        cur = db.cursor()
+            login = work["login"]
+            # get db connection
+            db = base.connectMysqlDB(config, autocommit=False)
+            cur = db.cursor()
 
-        # read data from file
-        try:
-            directory = base_path + "/" + login
-            files = os.listdir(directory)
-            for file in files:
-                file_path = directory + "/" + file
-                text = base.get_info_from_file(file_path)
-                if text is False:
-                    print "file not existed: " + file_path
-                else:
-                    obj = json.loads(text)
-                    print "read file: " + file_path
-                    count = 1
-                    for edge in obj["data"]["user"]["sponsorshipsAsMaintainer"]["edges"]:
-                        if edge["node"]["privacyLevel"] == "PRIVATE":
-                            cur.execute("insert into github_sponsorships_as_maintainer "
-                                        "(login, flag, created_at) "
-                                        "values (%s, %s, %s)",
-                                        (obj["data"]["user"]["login"], str(2), base.time_handler(edge["node"]["createdAt"])))
-                        else:
-                            if "company" in edge["node"]["sponsorEntity"]:
-                                flag = 0
+            # read data from file
+            try:
+                directory = base_path + "/" + login
+                files = os.listdir(directory)
+                for file in files:
+                    file_path = directory + "/" + file
+                    text = base.get_info_from_file(file_path)
+                    if text is False:
+                        logging.warn("file not existed: " + file_path)
+                    else:
+                        obj = json.loads(text)
+                        logging.info("read file: " + file_path)
+                        count = 1
+                        for edge in obj["data"]["user"]["sponsorshipsAsMaintainer"]["edges"]:
+                            if edge["node"]["privacyLevel"] == "PRIVATE":
+                                cur.execute("insert into github_sponsorships_as_maintainer "
+                                            "(login, flag, created_at) "
+                                            "values (%s, %s, %s)",
+                                            (obj["data"]["user"]["login"], base.flag2, base.time_handler(edge["node"]["createdAt"])))
                             else:
-                                flag = 1
-                            cur.execute("insert into github_sponsorships_as_maintainer "
-                                        "(login, sponsor_login, flag, created_at) "
-                                        "values (%s, %s, %s, %s)",
-                                        (obj["data"]["user"]["login"], edge["node"]["sponsorEntity"]["login"], flag,
-                                         base.time_handler(edge["node"]["createdAt"])))
-                        db.commit()
-                        print "the " + str(count) + "th record in file: " + file_path
-                        count += 1
-            self.q.task_done()
-            cur.close()
-            db.close()
-        except Exception as e:
-            print(e)
+                                if "company" in edge["node"]["sponsorEntity"]:
+                                    flag = base.flag0
+                                else:
+                                    flag = base.flag1
+                                cur.execute("insert into github_sponsorships_as_maintainer "
+                                            "(login, sponsor_login, flag, created_at) "
+                                            "values (%s, %s, %s, %s)",
+                                            (obj["data"]["user"]["login"], edge["node"]["sponsorEntity"]["login"], flag,
+                                             base.time_handler(edge["node"]["createdAt"])))
+                            db.commit()
+                            logging.info("the " + str(count) + "th record in file: " + file_path)
+                            count += 1
+                self.q.task_done()
+                cur.close()
+                db.close()
+            except Exception as e:
+                logging.error(e)
 
 # write github user sponsorships as sponsor
 def writeGithubSponsorshipsAsSponsor(path, sql):
@@ -342,15 +346,15 @@ def writeGithubSponsorshipsAsSponsor(path, sql):
     items = cur.fetchall()
     for item in items:
         unhandled_tasks.append({"login": item[0]})
-    print "finish reading database"
-    print "%d tasks left for handling" % (len(unhandled_tasks))
+    logging.info("finish reading database")
+    logging.info("%d tasks left for handling" % (len(unhandled_tasks)))
 
     # close this database connection
     cur.close()
     db.close()
 
     if len(unhandled_tasks) == 0:
-        print "finish"
+        logging.info("finish")
         return
 
     for task in unhandled_tasks:
@@ -360,54 +364,97 @@ def writeGithubSponsorshipsAsSponsor(path, sql):
         writeGithubSponsorshipsAsSponsorThread(workQueue).start()
     workQueue.join()
 
-    print "finish"
+    logging.info("finish")
 
 class writeGithubSponsorshipsAsSponsorThread(threading.Thread):
     def __init__(self, q):
         threading.Thread.__init__(self)
         self.q = q
     def run(self):
-        work = self.q.get(timeout=0)
-        print "the number of work in queue: " + str(self.q.qsize())
+        while not self.q.empty():
+            work = self.q.get(timeout=0)
+            logging.info("the number of work in queue: " + str(self.q.qsize()))
 
-        login = work["login"]
-        # get db connection
-        db = base.connectMysqlDB(config, autocommit=False)
-        cur = db.cursor()
+            login = work["login"]
+            # get db connection
+            db = base.connectMysqlDB(config, autocommit=False)
+            cur = db.cursor()
 
-        # read data from file
-        try:
-            directory = base_path + "/" + login
-            files = os.listdir(directory)
-            for file in files:
-                file_path = directory + "/" + file
-                text = base.get_info_from_file(file_path)
-                if text is False:
-                    print "file not existed: " + file_path
-                else:
+            # read data from file
+            try:
+                directory = base_path + "/" + login
+                files = os.listdir(directory)
+                for file in files:
+                    file_path = directory + "/" + file
+                    text = base.get_info_from_file(file_path)
+                    if text is False:
+                        logging.warn("file not existed: " + file_path)
+                        continue
                     obj = json.loads(text)
                     print "read file: " + file_path
                     count = 1
+                    # github user 接受了打赏，但是没有打赏过别人。
+                    # 之所以将这部分数据写入 github_sponsorships_as_sponsor 表中，是为了做筛选
+                    if len(obj["data"]["user"]["sponsorshipsAsSponsor"]["edges"]) == 0:
+                        logging.warn("the user " + login + " doesn't sponsor others")
+                        cur.execute("insert into github_sponsorships_as_sponsor "
+                                    "(login, sponsor_login, flag) "
+                                    "values (%s, %s, %s)",
+                                    (login, login, str(base.flag4)))
+                        db.commit()
+                        continue
                     for edge in obj["data"]["user"]["sponsorshipsAsSponsor"]["edges"]:
                         if edge["node"]["privacyLevel"] == "PRIVATE":
-                            cur.execute("insert into github_sponsorships_as_sponsor "
-                                        "(sponsor_login, flag, created_at) "
-                                        "values (%s, %s, %s)",
-                                        (obj["data"]["user"]["login"], str(2), base.time_handler(edge["node"]["createdAt"])))
+                            logging.info("the " + str(count) + "th record is private in file: " + file_path)
+                            count += 1
+                            continue
                         else:
+                            slug = edge["node"]["sponsorable"]["sponsorsListing"]["slug"].split("-")[1]
                             cur.execute("insert into github_sponsorships_as_sponsor "
-                                        "(slug, sponsor_login, flag, created_at) "
-                                        "values (%s, %s, %s, %s)",
-                                        (edge["node"]["sponsorable"]["sponsorsListing"]["slug"], obj["data"]["user"]["login"], str(3),
+                                        "(login, slug, sponsor_login, flag, created_at) "
+                                        "values (%s, %s, %s, %s, %s)",
+                                        (slug, edge["node"]["sponsorable"]["sponsorsListing"]["slug"], obj["data"]["user"]["login"], str(3),
                                          base.time_handler(edge["node"]["createdAt"])))
                         db.commit()
-                        print "the " + str(count) + "th record in file: " + file_path
+                        logging.info("the " + str(count) + "th record in file: " + file_path)
                         count += 1
-            self.q.task_done()
-            cur.close()
-            db.close()
-        except Exception as e:
-            print(e)
+                self.q.task_done()
+                cur.close()
+                db.close()
+            except Exception as e:
+                logging.error(e)
+
+def updateGithubSponsorshipsAsSponsor(login, flag):
+    # create database connection
+    db = base.connectMysqlDB(config)
+    cur = db.cursor()
+
+    # read all the repos
+    cur.execute("update github_sponsorships_as_sponsor "
+                "set flag= " + flag + " "
+                "where login='" + login + "'")
+    items = cur.fetchall()
+    logging.info("finish reading database")
+
+    # close this database connection
+    cur.close()
+    db.close()
+
+def updateGithubSponsorshipsAsMaintainer(login, flag):
+    # create database connection
+    db = base.connectMysqlDB(config)
+    cur = db.cursor()
+
+    # read all the repos
+    cur.execute("update github_sponsorships_as_maintainer "
+                "set flag= " + flag + " "
+                "where sponsor_login='" + login + "'")
+    items = cur.fetchall()
+    logging.info("finish reading database")
+
+    # close this database connection
+    cur.close()
+    db.close()
 
 # write the recently all of commit contribution
 def writeUserCommits(path, sql):
