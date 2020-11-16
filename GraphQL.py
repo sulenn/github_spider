@@ -16,7 +16,7 @@ from requests.exceptions import ConnectionError, ReadTimeout
 # db config file
 f = open('config.yaml', 'r')
 config = yaml.load(f.read(), Loader=yaml.BaseLoader)
-THREAD_NUM = 10
+THREAD_NUM = 20
 base_path = ""
 query = ""
 start_time = ""
@@ -835,15 +835,15 @@ def crawlUserRepository(p, q, sql, time1, time2):
     items = cur.fetchall()
     for item in items:
         unhandled_tasks.append({"login": item[0]})
-    print "finish reading database"
-    print "%d tasks left for handling" % (len(unhandled_tasks))
+    logging.info("finish reading database")
+    logging.info("%d tasks left for handling" % (len(unhandled_tasks)))
 
     # close this database connection
     cur.close()
     db.close()
 
     if len(unhandled_tasks) == 0:
-        print "finish"
+        logging.warn("finish")
         return
 
     for task in unhandled_tasks:
@@ -853,52 +853,56 @@ def crawlUserRepository(p, q, sql, time1, time2):
         crawlUserRepositoryThread(workQueue).start()
     workQueue.join()
 
-    print "finish"
+    logging.info("finish")
 
 class crawlUserRepositoryThread(threading.Thread):
     def __init__(self, q):
         threading.Thread.__init__(self)
         self.q = q
     def run(self):
-        work = self.q.get(timeout=0)
-        print "the number of work in queue: " + str(self.q.qsize())
+        while not self.q.empty():
+            work = self.q.get(timeout=0)
+            logging.info("the number of work in queue: " + str(self.q.qsize()))
 
-        login = work["login"]
-        count = 1
-        after_cursor = ""
-        while True:
-            # get a suitable token and combine header
-            github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
-            # print github_token
-            headers = {
-                'Authorization': 'Bearer ' + github_token,
-                'Content-Type': 'application/json'
-            }
-            # print "headers is: " + str(headers)
-            values = {"query": query % (login, start_time, end_time, after_cursor), "variables": {}}
-            try:
-                response = requests.post(url=url, headers=headers, json=values)
-                if base.judge_http_response(response) is False:
+            login = work["login"]
+            count = 1
+            after_cursor = ""
+            while True:
+                # get a suitable token and combine header
+                github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
+                # print github_token
+                headers = {
+                    'Authorization': 'Bearer ' + github_token,
+                    'Content-Type': 'application/json'
+                }
+                # print "headers is: " + str(headers)
+                values = {"query": query % (login, start_time, end_time, after_cursor), "variables": {}}
+                try:
+                    response = requests.post(url=url, headers=headers, json=values)
+                    if base.judge_http_response(response) is False:
+                        continue
+                    response_json = response.json()
+                    # 写入文件
+                    filename = base_path + "/" + login + "/" + start_time + "_" + end_time + "/" + str(count) + ".json"
+                    flag = base.generate_file(filename, json.dumps(response_json))
+                    if flag is True:
+                        logging.info("create file successfully: " + filename)
+                    elif flag is False:
+                        logging.warn("file is already existed: " + filename)
+                    else:
+                        logging.warn("create file failed: " + flag + " filename: " + filename)
+                    if response_json["data"]["user"]["contributionsCollection"]["repositoryContributions"]["pageInfo"]["hasNextPage"] is True:
+                        after_cursor = response_json["data"]["user"]["contributionsCollection"]["repositoryContributions"]["pageInfo"]["endCursor"]
+                        count += 1
+                        continue
+                except (ConnectionError, ReadTimeout) as e:
+                    logging.error(e)
                     continue
-                response_json = response.json()
-                # 写入文件
-                filename = base_path + "/" + login + "/" + start_time + "_" + end_time + "/" + str(count) + ".json"
-                flag = base.generate_file(filename, json.dumps(response_json))
-                if flag is True:
-                    print "create file successfully: " + filename
-                elif flag is False:
-                    print "file is already existed: " + filename
-                else:
-                    print "create file failed: " + flag + " filename: " + filename
-                if response_json["data"]["user"]["contributionsCollection"]["repositoryContributions"]["pageInfo"]["hasNextPage"] is True:
-                    after_cursor = response_json["data"]["user"]["contributionsCollection"]["repositoryContributions"]["pageInfo"]["endCursor"]
-                    count += 1
-                    continue
-            except Exception as e:
-                print(e)
-                continue
-            break
-        self.q.task_done()
+                except Exception as e:
+                    logging.error(e)
+                    return
+                break
+            self.q.task_done()
 
 # crawl user commit comment
 def crawlUserCommitComment(p, q, sql):
@@ -918,15 +922,15 @@ def crawlUserCommitComment(p, q, sql):
     items = cur.fetchall()
     for item in items:
         unhandled_tasks.append({"login": item[0]})
-    print "finish reading database"
-    print "%d tasks left for handling" % (len(unhandled_tasks))
+    logging.info("finish reading database")
+    logging.info("%d tasks left for handling" % (len(unhandled_tasks)))
 
     # close this database connection
     cur.close()
     db.close()
 
     if len(unhandled_tasks) == 0:
-        print "finish"
+        logging.warn("finish")
         return
 
     for task in unhandled_tasks:
@@ -936,52 +940,56 @@ def crawlUserCommitComment(p, q, sql):
         crawlUserCommitCommentThread(workQueue).start()
     workQueue.join()
 
-    print "finish"
+    logging.info("finish")
 
 class crawlUserCommitCommentThread(threading.Thread):
     def __init__(self, q):
         threading.Thread.__init__(self)
         self.q = q
     def run(self):
-        work = self.q.get(timeout=0)
-        print "the number of work in queue: " + str(self.q.qsize())
+        while not self.q.empty():
+            work = self.q.get(timeout=0)
+            logging.info("the number of work in queue: " + str(self.q.qsize()))
 
-        login = work["login"]
-        count = 1
-        after_cursor = ""
-        while True:
-            # get a suitable token and combine header
-            github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
-            # print github_token
-            headers = {
-                'Authorization': 'Bearer ' + github_token,
-                'Content-Type': 'application/json'
-            }
-            # print "headers is: " + str(headers)
-            values = {"query": query % (login, after_cursor), "variables": {}}
-            try:
-                response = requests.post(url=url, headers=headers, json=values)
-                if base.judge_http_response(response) is False:
+            login = work["login"]
+            count = 1
+            after_cursor = ""
+            while True:
+                # get a suitable token and combine header
+                github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
+                # print github_token
+                headers = {
+                    'Authorization': 'Bearer ' + github_token,
+                    'Content-Type': 'application/json'
+                }
+                # print "headers is: " + str(headers)
+                values = {"query": query % (login, after_cursor), "variables": {}}
+                try:
+                    response = requests.post(url=url, headers=headers, json=values)
+                    if base.judge_http_response(response) is False:
+                        continue
+                    response_json = response.json()
+                    # 写入文件
+                    filename = base_path + "/" + login + "/" + str(count) + ".json"
+                    flag = base.generate_file(filename, json.dumps(response_json))
+                    if flag is True:
+                        logging.info("create file successfully: " + filename)
+                    elif flag is False:
+                        logging.warn("file is already existed: " + filename)
+                    else:
+                        logging.warn("create file failed: " + flag + " filename: " + filename)
+                    if response_json["data"]["user"]["commitComments"]["pageInfo"]["hasNextPage"] is True:
+                        after_cursor = ", after:" + "\"" + response_json["data"]["user"]["commitComments"]["pageInfo"]["endCursor"] + "\""
+                        count += 1
+                        continue
+                except (ConnectionError, ReadTimeout) as e:
+                    logging.error(e)
                     continue
-                response_json = response.json()
-                # 写入文件
-                filename = base_path + "/" + login + "/" + str(count) + ".json"
-                flag = base.generate_file(filename, json.dumps(response_json))
-                if flag is True:
-                    print "create file successfully: " + filename
-                elif flag is False:
-                    print "file is already existed: " + filename
-                else:
-                    print "create file failed: " + flag + " filename: " + filename
-                if response_json["data"]["user"]["commitComments"]["pageInfo"]["hasNextPage"] is True:
-                    after_cursor = ", after:" + "\"" + response_json["data"]["user"]["commitComments"]["pageInfo"]["endCursor"] + "\""
-                    count += 1
-                    continue
-            except Exception as e:
-                print(e)
-                continue
-            break
-        self.q.task_done()
+                except Exception as e:
+                    logging.error(e)
+                    return
+                break
+            self.q.task_done()
 
 # crawl user issue comment
 def crawlUserIssueComment(p, q, sql):
@@ -1001,15 +1009,15 @@ def crawlUserIssueComment(p, q, sql):
     items = cur.fetchall()
     for item in items:
         unhandled_tasks.append({"login": item[0]})
-    print "finish reading database"
-    print "%d tasks left for handling" % (len(unhandled_tasks))
+    logging.info("finish reading database")
+    logging.info("%d tasks left for handling" % (len(unhandled_tasks)))
 
     # close this database connection
     cur.close()
     db.close()
 
     if len(unhandled_tasks) == 0:
-        print "finish"
+        logging.warn("finish")
         return
 
     for task in unhandled_tasks:
@@ -1019,49 +1027,61 @@ def crawlUserIssueComment(p, q, sql):
         crawlUserIssueCommentThread(workQueue).start()
     workQueue.join()
 
-    print "finish"
+    logging.info("finish")
 
 class crawlUserIssueCommentThread(threading.Thread):
     def __init__(self, q):
         threading.Thread.__init__(self)
         self.q = q
     def run(self):
-        work = self.q.get(timeout=0)
-        print "the number of work in queue: " + str(self.q.qsize())
+        while not self.q.empty():
+            work = self.q.get(timeout=0)
+            logging.info("the number of work in queue: " + str(self.q.qsize()))
 
-        login = work["login"]
-        count = 1
-        after_cursor = ""
-        while True:
-            # get a suitable token and combine header
-            github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
-            # print github_token
-            headers = {
-                'Authorization': 'Bearer ' + github_token,
-                'Content-Type': 'application/json'
-            }
-            # print "headers is: " + str(headers)
-            values = {"query": query % (login, after_cursor), "variables": {}}
-            try:
-                response = requests.post(url=url, headers=headers, json=values)
-                if base.judge_http_response(response) is False:
+            login = work["login"]
+            count = 1
+            after_cursor = ""
+            while True:
+                # get a suitable token and combine header
+                github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
+                # print github_token
+                headers = {
+                    'Authorization': 'Bearer ' + github_token,
+                    'Content-Type': 'application/json'
+                }
+                # print "headers is: " + str(headers)
+                values = {"query": query % (login, after_cursor), "variables": {}}
+                try:
+                    response = requests.post(url=url, headers=headers, json=values)
+                    if response.status_code != 200:
+                        logging.error("response.status_code: " + str(response.status_code))
+                        continue
+                    response_json = response.json()
+                    if "errors" in response_json:
+                        logging.error(json.dumps(response_json))
+                        if "type" not in response_json["errors"][0]:
+                            logging.error("unknown error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
+                            break
+                        logging.error("nomal error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                        continue
+                    # 写入文件
+                    filename = base_path + "/" + login + "/" + str(count) + ".json"
+                    flag = base.generate_file(filename, json.dumps(response_json))
+                    if flag is True:
+                        logging.info("create file successfully: " + filename)
+                    elif flag is False:
+                        logging.warn("file is already existed: " + filename)
+                    else:
+                        logging.warn("create file failed: " + flag + " filename: " + filename)
+                    if response_json["data"]["user"]["issueComments"]["pageInfo"]["hasNextPage"] is True:
+                        after_cursor = ", after:" + "\"" + response_json["data"]["user"]["issueComments"]["pageInfo"]["endCursor"] + "\""
+                        count += 1
+                        continue
+                except (ConnectionError, ReadTimeout) as e:
+                    logging.error(e)
                     continue
-                response_json = response.json()
-                # 写入文件
-                filename = base_path + "/" + login + "/" + str(count) + ".json"
-                flag = base.generate_file(filename, json.dumps(response_json))
-                if flag is True:
-                    print "create file successfully: " + filename
-                elif flag is False:
-                    print "file is already existed: " + filename
-                else:
-                    print "create file failed: " + flag + " filename: " + filename
-                if response_json["data"]["user"]["issueComments"]["pageInfo"]["hasNextPage"] is True:
-                    after_cursor = ", after:" + "\"" + response_json["data"]["user"]["issueComments"]["pageInfo"]["endCursor"] + "\""
-                    count += 1
-                    continue
-            except Exception as e:
-                print(e)
-                continue
-            break
-        self.q.task_done()
+                except Exception as e:
+                    logging.error(e)
+                    return
+                break
+            self.q.task_done()

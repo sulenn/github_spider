@@ -135,9 +135,10 @@ IF
 		`login` VARCHAR(100) NOT NULL,
 	    `created_at` datetime,
 		`updated_at` datetime,
-		`commit_oid` VARCHAR(100) NOT NULL,
+		`body` TEXT,
+		`commit_oid` VARCHAR(100),
 		PRIMARY KEY ( `comm_database_id` )
-	)ENGINE=InnoDB DEFAULT CHARSET=utf8;
+	)ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- create table: github_issue_comment
 CREATE TABLE

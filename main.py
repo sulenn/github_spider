@@ -138,15 +138,15 @@ if __name__ == "__main__":
     #     logging.info("the data between " + start_time[index] + " and " + end_time[index] + " is finished")
     # Database.writeUserIssues(paths.github_user_issues, sql_for_user_issues)
 
-    # handle github user pull request
-    sql_for_user_pull_request = "select login \
-                                        from github_user \
-                                        WHERE spon_maintainer_count>0 and login NOT IN (SELECT DISTINCT login from github_user_pr)"
-    for index in range(len(start_time)):
-        GraphQL.crawlUserPullRequests(paths.github_user_pull_requests, queries.query_github_user_pull_requests,
-                                 sql_for_user_pull_request, start_time[index], end_time[index])
-        logging.info("the data between " + start_time[index] + " and " + end_time[index] + " is finished")
-    Database.writeUserPullRequests(paths.github_user_pull_requests, sql_for_user_pull_request)
+    # # handle github user pull request
+    # sql_for_user_pull_request = "select login \
+    #                                     from github_user \
+    #                                     WHERE spon_maintainer_count>0 and login NOT IN (SELECT DISTINCT login from github_user_pr)"
+    # for index in range(len(start_time)):
+    #     GraphQL.crawlUserPullRequests(paths.github_user_pull_requests, queries.query_github_user_pull_requests,
+    #                              sql_for_user_pull_request, start_time[index], end_time[index])
+    #     logging.info("the data between " + start_time[index] + " and " + end_time[index] + " is finished")
+    # Database.writeUserPullRequests(paths.github_user_pull_requests, sql_for_user_pull_request)
 
     # # handle github user pull request review
     # sql_for_user_pull_request_review = "select login \
@@ -155,31 +155,31 @@ if __name__ == "__main__":
     # for index in range(len(start_time)):
     #     GraphQL.crawlUserPullRequestReview(paths.github_user_pull_request_review, queries.query_github_user_pull_request_review,
     #                              sql_for_user_pull_request_review, start_time[index], end_time[index])
-    #     print "the data between " + start_time[index] + " and " + end_time[index] + " is finished\n\n"
+    #     logging.info("the data between " + start_time[index] + " and " + end_time[index] + " is finished")
     # Database.writeUserPullRequestReview(paths.github_user_pull_request_review, sql_for_user_pull_request_review)
 
     # # handle github user repository
     # sql_for_user_repository = "select login \
-    #                                     from init_user \
-    #                                     WHERE login NOT IN (SELECT DISTINCT login from github_repository)"
+    #                                     from github_user \
+    #                                     WHERE spon_maintainer_count>0 and login NOT IN (SELECT DISTINCT login from github_repository)"
     # for index in range(len(start_time)):
     #     GraphQL.crawlUserRepository(paths.github_user_repositories, queries.query_github_user_repositories,
     #                              sql_for_user_repository, start_time[index], end_time[index])
-    #     print "the data between " + start_time[index] + " and " + end_time[index] + " is finished\n\n"
+    #     logging.info("the data between " + start_time[index] + " and " + end_time[index] + " is finished")
     # Database.writeUserRepository(paths.github_user_repositories, sql_for_user_repository)
 
     # # handle github user commit comment
     # sql_for_user_commit_comment = "select login \
-    #                                     from init_user \
-    #                                     WHERE login NOT IN (SELECT DISTINCT login from github_commit_comment)"
+    #                                     from github_user \
+    #                                     WHERE spon_maintainer_count>0 and login NOT IN (SELECT DISTINCT login from github_commit_comment)"
     # GraphQL.crawlUserCommitComment(paths.github_user_commit_comments, queries.query_github_user_commit_comments,
     #                              sql_for_user_commit_comment)
     # Database.writeUserCommitComment(paths.github_user_commit_comments, sql_for_user_commit_comment)
 
-    # # handle github user issue comment
-    # sql_for_user_issue_comment = "select login \
-    #                                     from init_user \
-    #                                     WHERE login NOT IN (SELECT DISTINCT login from github_issue_comment)"
-    # GraphQL.crawlUserIssueComment(paths.github_user_issue_comments, queries.query_github_user_issue_comments,
-    #                              sql_for_user_issue_comment)
-    # Database.writeUserIssueComment(paths.github_user_issue_comments, sql_for_user_issue_comment)
+    # handle github user issue comment
+    sql_for_user_issue_comment = "select login \
+                                        from github_user \
+                                        WHERE spon_maintainer_count>0 and login NOT IN (SELECT DISTINCT login from github_issue_comment)"
+    GraphQL.crawlUserIssueComment(paths.github_user_issue_comments, queries.query_github_user_issue_comments,
+                                 sql_for_user_issue_comment)
+    Database.writeUserIssueComment(paths.github_user_issue_comments, sql_for_user_issue_comment)

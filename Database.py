@@ -758,13 +758,16 @@ class writeUserPullRequestReviewThread(threading.Thread):
                         logging.info("read file: " + file)
                         count = 1
                         for node in obj["data"]["user"]["contributionsCollection"]["pullRequestReviewContributions"]["edges"]:
-                            cur.execute("insert into github_user_pr_review "
-                                        "(pr_database_id, login, created_at, title) "
-                                        "values (%s, %s, %s, %s)",
-                                        (node["node"]["pullRequest"]["databaseId"], obj["data"]["user"]["login"], base.time_handler(node["node"]["pullRequest"]["createdAt"]),
-                                         node["node"]["pullRequest"]["title"]))
-                            db.commit()
-                            logging.info("the " + str(count) + "th record in file: " + file)
+                            try:   # maybe happen duplicate key when insert data
+                                cur.execute("insert into github_user_pr_review "
+                                            "(pr_database_id, login, created_at, title) "
+                                            "values (%s, %s, %s, %s)",
+                                            (node["node"]["pullRequest"]["databaseId"], obj["data"]["user"]["login"], base.time_handler(node["node"]["pullRequest"]["createdAt"]),
+                                             node["node"]["pullRequest"]["title"]))
+                                db.commit()
+                                logging.info("the " + str(count) + "th record in file: " + file)
+                            except Exception as e:
+                                logging.error(e)
                             count += 1
                 self.q.task_done()
                 cur.close()
@@ -789,15 +792,15 @@ def writeUserRepository(path, sql):
     items = cur.fetchall()
     for item in items:
         unhandled_tasks.append({"login": item[0]})
-    print "finish reading database"
-    print "%d tasks left for handling" % (len(unhandled_tasks))
+    logging.info("finish reading database")
+    logging.info("%d tasks left for handling" % (len(unhandled_tasks)))
 
     # close this database connection
     cur.close()
     db.close()
 
     if len(unhandled_tasks) == 0:
-        print "finish"
+        logging.warn("finish")
         return
 
     for task in unhandled_tasks:
@@ -807,47 +810,49 @@ def writeUserRepository(path, sql):
         writeUserRepositoryThread(workQueue).start()
     workQueue.join()
 
-    print "finish"
+    logging.info("finish")
 
 class writeUserRepositoryThread(threading.Thread):
     def __init__(self, q):
         threading.Thread.__init__(self)
         self.q = q
     def run(self):
-        work = self.q.get(timeout=0)
-        print "the number of work in queue: " + str(self.q.qsize())
+        while not self.q.empty():
+            work = self.q.get(timeout=0)
+            logging.info("the number of work in queue: " + str(self.q.qsize()))
 
-        login = work["login"]
-        # get db connection
-        db = base.connectMysqlDB(config, autocommit=False)
-        cur = db.cursor()
+            login = work["login"]
+            # get db connection
+            db = base.connectMysqlDB(config, autocommit=False)
+            cur = db.cursor()
 
-        # read data from file
-        try:
-            directory = base_path + "/" + login
-            files = base.read_all_filename_in_directory(directory)
-            for file in files:
-                text = base.get_info_from_file(file)
-                if text is False:
-                    print "file not existed: " + file
-                else:
-                    obj = json.loads(text)
-                    print "\n\nread file: " + file
-                    count = 1
-                    for node in obj["data"]["user"]["contributionsCollection"]["repositoryContributions"]["edges"]:
-                        cur.execute("insert into github_repository "
-                                    "(repo_database_id, login, name, created_at) "
-                                    "values (%s, %s, %s, %s)",
-                                    (node["node"]["repository"]["databaseId"], obj["data"]["user"]["login"], node["node"]["repository"]["name"],
-                                     base.time_handler(node["node"]["repository"]["createdAt"])))
-                        db.commit()
-                        print "the " + str(count) + "th record in file: " + file
-                        count += 1
-            self.q.task_done()
-            cur.close()
-            db.close()
-        except Exception as e:
-            print(e)
+            # read data from file
+            try:
+                directory = base_path + "/" + login
+                files = base.read_all_filename_in_directory(directory)
+                for file in files:
+                    text = base.get_info_from_file(file)
+                    if text is False:
+                        logging.warn("file not existed: " + file)
+                    else:
+                        obj = json.loads(text)
+                        logging.info("read file: " + file)
+                        count = 1
+                        for node in obj["data"]["user"]["contributionsCollection"]["repositoryContributions"]["edges"]:
+                            cur.execute("insert into github_repository "
+                                        "(repo_database_id, login, name, created_at) "
+                                        "values (%s, %s, %s, %s)",
+                                        (node["node"]["repository"]["databaseId"], obj["data"]["user"]["login"], node["node"]["repository"]["name"],
+                                         base.time_handler(node["node"]["repository"]["createdAt"])))
+                            db.commit()
+                            logging.info("the " + str(count) + "th record in file: " + file)
+                            count += 1
+                self.q.task_done()
+                cur.close()
+                db.close()
+            except Exception as e:
+                logging.error(e)
+                return
 
 # write user commit comment
 def writeUserCommitComment(path, sql):
@@ -865,15 +870,15 @@ def writeUserCommitComment(path, sql):
     items = cur.fetchall()
     for item in items:
         unhandled_tasks.append({"login": item[0]})
-    print "finish reading database"
-    print "%d tasks left for handling" % (len(unhandled_tasks))
+    logging.info("finish reading database")
+    logging.info("%d tasks left for handling" % (len(unhandled_tasks)))
 
     # close this database connection
     cur.close()
     db.close()
 
     if len(unhandled_tasks) == 0:
-        print "finish"
+        logging.warn("finish")
         return
 
     for task in unhandled_tasks:
@@ -883,47 +888,53 @@ def writeUserCommitComment(path, sql):
         writeUserCommitCommentThread(workQueue).start()
     workQueue.join()
 
-    print "finish"
+    logging.info("finish")
 
 class writeUserCommitCommentThread(threading.Thread):
     def __init__(self, q):
         threading.Thread.__init__(self)
         self.q = q
     def run(self):
-        work = self.q.get(timeout=0)
-        print "the number of work in queue: " + str(self.q.qsize())
+        while not self.q.empty():
+            work = self.q.get(timeout=0)
+            logging.info("the number of work in queue: " + str(self.q.qsize()))
 
-        login = work["login"]
-        # get db connection
-        db = base.connectMysqlDB(config, autocommit=False)
-        cur = db.cursor()
+            login = work["login"]
+            # get db connection
+            db = base.connectMysqlDB(config, autocommit=False)
+            cur = db.cursor()
 
-        # read data from file
-        try:
-            directory = base_path + "/" + login
-            files = base.read_all_filename_in_directory(directory)
-            for file in files:
-                text = base.get_info_from_file(file)
-                if text is False:
-                    print "file not existed: " + file
-                else:
-                    obj = json.loads(text)
-                    print "\n\nread file: " + file
-                    count = 1
-                    for node in obj["data"]["user"]["commitComments"]["edges"]:
-                        cur.execute("insert into github_commit_comment "
-                                    "(comm_database_id, login, created_at, updated_at, body, commit_oid) "
-                                    "values (%s, %s, %s, %s, %s, %s)",
-                                    (node["node"]["databaseId"], obj["data"]["user"]["login"], base.time_handler(node["node"]["createdAt"]),
-                                     base.time_handler(node["node"]["updatedAt"]), node["node"]["body"], node["node"]["commit"]["oid"]))
-                        db.commit()
-                        print "the " + str(count) + "th record in file: " + file
-                        count += 1
-            self.q.task_done()
-            cur.close()
-            db.close()
-        except Exception as e:
-            print(e)
+            # read data from file
+            try:
+                directory = base_path + "/" + login
+                files = base.read_all_filename_in_directory(directory)
+                for file in files:
+                    text = base.get_info_from_file(file)
+                    if text is False:
+                        logging.warn("file not existed: " + file)
+                    else:
+                        obj = json.loads(text)
+                        logging.info("read file: " + file)
+                        count = 1
+                        for node in obj["data"]["user"]["commitComments"]["edges"]:
+                            logging.info("the " + str(count) + "th record in file: " + file)
+                            if node["node"]["commit"] is not None:
+                                oid = node["node"]["commit"]["oid"]
+                            else:
+                                oid = ""
+                            cur.execute("insert into github_commit_comment "
+                                        "(comm_database_id, login, created_at, updated_at, body, commit_oid) "
+                                        "values (%s, %s, %s, %s, %s, %s)",
+                                        (node["node"]["databaseId"], obj["data"]["user"]["login"], base.time_handler(node["node"]["createdAt"]),
+                                         base.time_handler(node["node"]["updatedAt"]), node["node"]["body"], oid))
+                            db.commit()
+                            count += 1
+                self.q.task_done()
+                cur.close()
+                db.close()
+            except Exception as e:
+                logging.error(e)
+                return
 
 # write user issue comment
 def writeUserIssueComment(path, sql):
@@ -941,15 +952,15 @@ def writeUserIssueComment(path, sql):
     items = cur.fetchall()
     for item in items:
         unhandled_tasks.append({"login": item[0]})
-    print "finish reading database"
-    print "%d tasks left for handling" % (len(unhandled_tasks))
+    logging.info("finish reading database")
+    logging.info("%d tasks left for handling" % (len(unhandled_tasks)))
 
     # close this database connection
     cur.close()
     db.close()
 
     if len(unhandled_tasks) == 0:
-        print "finish"
+        logging.warn("finish")
         return
 
     for task in unhandled_tasks:
@@ -959,57 +970,59 @@ def writeUserIssueComment(path, sql):
         writeUserIssueCommentThread(workQueue).start()
     workQueue.join()
 
-    print "finish"
+    logging.info("finish")
 
 class writeUserIssueCommentThread(threading.Thread):
     def __init__(self, q):
         threading.Thread.__init__(self)
         self.q = q
     def run(self):
-        work = self.q.get(timeout=0)
-        print "the number of work in queue: " + str(self.q.qsize())
+        while not self.q.empty():
+            work = self.q.get(timeout=0)
+            logging.info("the number of work in queue: " + str(self.q.qsize()))
 
-        login = work["login"]
-        # get db connection
-        db = base.connectMysqlDB(config, autocommit=False)
-        cur = db.cursor()
+            login = work["login"]
+            # get db connection
+            db = base.connectMysqlDB(config, autocommit=False)
+            cur = db.cursor()
 
-        # read data from file
-        try:
-            directory = base_path + "/" + login
-            files = base.read_all_filename_in_directory(directory)
-            for file in files:
-                text = base.get_info_from_file(file)
-                if text is False:
-                    print "file not existed: " + file
-                else:
-                    obj = json.loads(text)
-                    print "\n\nread file: " + file
-                    count = 1
-                    for node in obj["data"]["user"]["issueComments"]["edges"]:
-                        try:
-                            cur.execute("insert into github_issue_comment "
-                                        "(comm_database_id, login, created_at, updated_at, issue_login, issue_database_id) "
-                                        "values (%s, %s, %s, %s, %s, %s)",
-                                        (node["node"]["databaseId"], obj["data"]["user"]["login"], base.time_handler(node["node"]["createdAt"]),
-                                         base.time_handler(node["node"]["updatedAt"]), node["node"]["issue"]["author"]["login"],
-                                         node["node"]["issue"]["databaseId"]))
-                            db.commit()
-                        except Exception as e:
-                            print e
-                            print "\n\ninsert failed!! the " + str(count) + "th record in file: " + file + "\n\n"
-                            cur.execute("insert into github_issue_comment "
-                                        "(comm_database_id, login, created_at, updated_at, issue_database_id) "
-                                        "values (%s, %s, %s, %s, %s)",
-                                        (node["node"]["databaseId"], obj["data"]["user"]["login"],
-                                         base.time_handler(node["node"]["createdAt"]),
-                                         base.time_handler(node["node"]["updatedAt"]),
-                                         node["node"]["issue"]["databaseId"]))
-                            db.commit()
-                        print "the " + str(count) + "th record in file: " + file
-                        count += 1
-            self.q.task_done()
-            cur.close()
-            db.close()
-        except Exception as e:
-            print(e)
+            # read data from file
+            try:
+                directory = base_path + "/" + login
+                files = base.read_all_filename_in_directory(directory)
+                for file in files:
+                    text = base.get_info_from_file(file)
+                    if text is False:
+                        logging.warn("file not existed: " + file)
+                    else:
+                        obj = json.loads(text)
+                        logging.info("read file: " + file)
+                        count = 1
+                        for node in obj["data"]["user"]["issueComments"]["edges"]:
+                            try:
+                                cur.execute("insert into github_issue_comment "
+                                            "(comm_database_id, login, created_at, updated_at, issue_login, issue_database_id) "
+                                            "values (%s, %s, %s, %s, %s, %s)",
+                                            (node["node"]["databaseId"], obj["data"]["user"]["login"], base.time_handler(node["node"]["createdAt"]),
+                                             base.time_handler(node["node"]["updatedAt"]), node["node"]["issue"]["author"]["login"],
+                                             node["node"]["issue"]["databaseId"]))
+                                db.commit()
+                            except Exception as e:
+                                logging.error(e)
+                                logging.error("insert failed!! the " + str(count) + "th record in file: " + file)
+                                cur.execute("insert into github_issue_comment "
+                                            "(comm_database_id, login, created_at, updated_at, issue_database_id) "
+                                            "values (%s, %s, %s, %s, %s)",
+                                            (node["node"]["databaseId"], obj["data"]["user"]["login"],
+                                             base.time_handler(node["node"]["createdAt"]),
+                                             base.time_handler(node["node"]["updatedAt"]),
+                                             node["node"]["issue"]["databaseId"]))
+                                db.commit()
+                            logging.info("the " + str(count) + "th record in file: " + file)
+                            count += 1
+                self.q.task_done()
+                cur.close()
+                db.close()
+            except Exception as e:
+                logging.error(e)
+                return
