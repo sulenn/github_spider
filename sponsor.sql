@@ -32,7 +32,7 @@ IF
 	    `created_at` datetime,
 		`short_description` TEXT,
 	    PRIMARY KEY ( `login` )
-	)ENGINE=InnoDB DEFAULT CHARSET=utf8;
+	)ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- create table: github_sponsor_listing_tiers
 CREATE TABLE
@@ -47,7 +47,7 @@ IF
 		`updated_at` datetime,
 		`description` TEXT,
 		PRIMARY KEY ( `login`,`name` )
-	)ENGINE=InnoDB DEFAULT CHARSET=utf8;
+	)ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- create table: github_sponsorships_as_maintainer
 CREATE TABLE
@@ -92,7 +92,7 @@ IF
 	    `created_at` datetime,
 		`title` TEXT,
 		PRIMARY KEY ( `issue_database_id` )
-	)ENGINE=InnoDB DEFAULT CHARSET=utf8;
+	)ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- create table: github_user_pr
 CREATE TABLE
@@ -103,7 +103,7 @@ IF
 	    `created_at` datetime,
 		`title` TEXT,
 		PRIMARY KEY ( `pr_database_id` )
-	)ENGINE=InnoDB DEFAULT CHARSET=utf8;
+	)ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- create table: github_user_pr_review
 CREATE TABLE
@@ -114,7 +114,7 @@ IF
 	    `created_at` datetime,
 		`title` TEXT,
 		PRIMARY KEY ( `pr_database_id` )
-	)ENGINE=InnoDB DEFAULT CHARSET=utf8;
+	)ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- create table: github_repository
 CREATE TABLE
