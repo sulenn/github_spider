@@ -10,7 +10,6 @@ import yaml as yaml
 import urllib2
 import json
 from utils import base
-import datetime
 
 
 # define some global things

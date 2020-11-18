@@ -9,9 +9,7 @@ import MySQLdb
 import yaml as yaml
 import urllib2
 import json
-import datetime
 from utils import base
-from datetime import datetime, timedelta
 
 
 # define some global things

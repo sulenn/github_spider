@@ -180,6 +180,6 @@ if __name__ == "__main__":
     sql_for_user_issue_comment = "select login \
                                         from github_user \
                                         WHERE spon_maintainer_count>0 and login NOT IN (SELECT DISTINCT login from github_issue_comment)"
-    GraphQL.crawlUserIssueComment(paths.github_user_issue_comments, queries.query_github_user_issue_comments,
-                                 sql_for_user_issue_comment)
+    # GraphQL.crawlUserIssueComment(paths.github_user_issue_comments, queries.query_github_user_issue_comments,
+    #                              sql_for_user_issue_comment)
     Database.writeUserIssueComment(paths.github_user_issue_comments, sql_for_user_issue_comment)

@@ -108,7 +108,7 @@ class crawlCommonThread(threading.Thread):
                 except (ConnectionError, ReadTimeout) as e:
                     logging.error(e)
                 except Exception as e:
-                    logging.error(e)
+                    logging.fatal(e)
                     return
 
 # crawl github user data
@@ -196,7 +196,7 @@ class crawlUserThread(threading.Thread):
                 except (ConnectionError, ReadTimeout) as e:
                     logging.error(e)
                 except Exception as e:
-                    logging.error(e)
+                    logging.fatal(e)
                     return
 
 # crawl github user data for sponsorships as maintainer
@@ -284,7 +284,7 @@ class crawlUserForSponsorshipsAsMaintainerThread(threading.Thread):
                 except (ConnectionError, ReadTimeout) as e:
                     logging.error(e)
                 except Exception as e:
-                    logging.error(e)
+                    logging.fatal(e)
                     return
 
 # crawl sponsorships as maintainer
@@ -367,7 +367,7 @@ class crawlSponsorshipsAsMaintainerThread(threading.Thread):
                 except (ConnectionError, ReadTimeout) as e:
                     logging.error(e)
                 except Exception as e:
-                    logging.error(e)
+                    logging.fatal(e)
                     return
             self.q.task_done()
 
@@ -451,7 +451,7 @@ class crawlSponsorshipsAsSponsorThread(threading.Thread):
                 except (ConnectionError, ReadTimeout) as e:
                     logging.error(e)
                 except Exception as e:
-                    logging.error(e)
+                    logging.fatal(e)
                     return
             self.q.task_done()
 
@@ -535,7 +535,7 @@ class crawlUserCommitsThread(threading.Thread):
                     logging.error(e)
                     continue
                 except Exception as e:
-                    logging.error(e)
+                    logging.fatal(e)
                     return
                 self.q.task_done()
                 break
@@ -626,7 +626,7 @@ class crawlUserIssuesThread(threading.Thread):
                     logging.error(e)
                     continue
                 except Exception as e:
-                    logging.error(e)
+                    logging.fatal(e)
                     return
                 break
             self.q.task_done()
@@ -717,7 +717,7 @@ class crawlUserPullRequestsThread(threading.Thread):
                     logging.error(e)
                     continue
                 except Exception as e:
-                    logging.error(e)
+                    logging.fatal(e)
                     return
                 break
             self.q.task_done()
@@ -808,7 +808,7 @@ class crawlUserPullRequestReviewThread(threading.Thread):
                     logging.error(e)
                     continue
                 except Exception as e:
-                    logging.error(e)
+                    logging.fatal(e)
                     return
                 break
             self.q.task_done()
@@ -899,7 +899,7 @@ class crawlUserRepositoryThread(threading.Thread):
                     logging.error(e)
                     continue
                 except Exception as e:
-                    logging.error(e)
+                    logging.fatal(e)
                     return
                 break
             self.q.task_done()
@@ -1081,7 +1081,7 @@ class crawlUserIssueCommentThread(threading.Thread):
                     logging.error(e)
                     continue
                 except Exception as e:
-                    logging.error(e)
+                    logging.fatal(e)
                     return
                 break
             self.q.task_done()

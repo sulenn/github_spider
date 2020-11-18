@@ -166,7 +166,7 @@ class writeGithubSponsorListingThread(threading.Thread):
                 cur.close()
                 db.close()
             except Exception as e:
-                logging.error(e)
+                logging.fatal(e)
                 return
 
 # write github user sponsor listing tiers info
@@ -243,7 +243,7 @@ class writeGithubSponsorListingTiersThread(threading.Thread):
                 cur.close()
                 db.close()
             except Exception as e:
-                logging.error(e)
+                logging.fatal(e)
                 return
 
 # write github user sponsorships as maintainer
@@ -332,7 +332,7 @@ class writeGithubSponsorshipsAsMaintainerThread(threading.Thread):
                 cur.close()
                 db.close()
             except Exception as e:
-                logging.error(e)
+                logging.fatal(e)
 
 # write github user sponsorships as sponsor
 def writeGithubSponsorshipsAsSponsor(path, sql):
@@ -426,7 +426,7 @@ class writeGithubSponsorshipsAsSponsorThread(threading.Thread):
                 cur.close()
                 db.close()
             except Exception as e:
-                logging.error(e)
+                logging.fatal(e)
 
 def updateGithubSponsorshipsAsSponsor(login, flag):
     # create database connection
@@ -536,7 +536,7 @@ class writeUserCommitsThread(threading.Thread):
                 cur.close()
                 db.close()
             except Exception as e:
-                logging.error(e)
+                logging.fatal(e)
                 return
 
 # write the recently all of issue contribution
@@ -614,7 +614,7 @@ class writeUserIssuesThread(threading.Thread):
                 cur.close()
                 db.close()
             except Exception as e:
-                logging.error(e)
+                logging.fatal(e)
                 return
 
 # write the recently all of pull request contribution
@@ -692,7 +692,7 @@ class writeUserPullRequestThread(threading.Thread):
                 cur.close()
                 db.close()
             except Exception as e:
-                logging.error(e)
+                logging.fatal(e)
                 return
 
 # write the recently all of pull request review contribution
@@ -773,7 +773,7 @@ class writeUserPullRequestReviewThread(threading.Thread):
                 cur.close()
                 db.close()
             except Exception as e:
-                logging.error(e)
+                logging.fatal(e)
                 return
 
 # write the recently all of repository contribution
@@ -933,7 +933,7 @@ class writeUserCommitCommentThread(threading.Thread):
                 cur.close()
                 db.close()
             except Exception as e:
-                logging.error(e)
+                logging.fatal(e)
                 return
 
 # write user issue comment
@@ -1024,5 +1024,5 @@ class writeUserIssueCommentThread(threading.Thread):
                 cur.close()
                 db.close()
             except Exception as e:
-                logging.error(e)
+                logging.fatal(e)
                 return
