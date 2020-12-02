@@ -4,6 +4,7 @@ from utils import paths
 from utils import queries
 from utils import base
 import logging
+import yaml
 
 # load logger
 base.setup_logging(base.logging_path, logging.DEBUG)
@@ -76,7 +77,34 @@ def cycle_supply_user_data_by_sponsorships_as_sponsor_and_maintainer():
             logging.info("cycle over!!!!!!!!!!")
             break
 
+# define some global things
+# db config file
+f = open('config.yaml', 'r')
+config = yaml.load(f.read(), Loader=yaml.BaseLoader)
+
+def insert_user():
+    # read all the users
+    f = open('users_with_sponsorList.txt', 'r')
+    logins = f.read().strip().split("\n")
+    # get db connection
+    db = base.connectMysqlDB(config, autocommit=False)
+    cur = db.cursor()
+
+    # read data from file
+    for username in logins:
+        logging.info(username)
+        try:
+            cur.execute("insert into init_user "
+                        "(login) "
+                        "value ('" + username + "')")
+            db.commit()
+        except Exception as e:
+            logging.fatal(e)
+    cur.close()
+    db.close()
+
 if __name__ == "__main__":
+    insert_user()
     # cycle_supply_user_data_by_sponsorships_as_sponsor_and_maintainer()
 
     # # handle github user info
@@ -176,10 +204,10 @@ if __name__ == "__main__":
     #                              sql_for_user_commit_comment)
     # Database.writeUserCommitComment(paths.github_user_commit_comments, sql_for_user_commit_comment)
 
-    # handle github user issue comment
-    sql_for_user_issue_comment = "select login \
-                                        from github_user \
-                                        WHERE spon_maintainer_count>0 and login NOT IN (SELECT DISTINCT login from github_issue_comment)"
-    # GraphQL.crawlUserIssueComment(paths.github_user_issue_comments, queries.query_github_user_issue_comments,
-    #                              sql_for_user_issue_comment)
-    Database.writeUserIssueComment(paths.github_user_issue_comments, sql_for_user_issue_comment)
+    # # handle github user issue comment
+    # sql_for_user_issue_comment = "select login \
+    #                                     from github_user \
+    #                                     WHERE spon_maintainer_count>0 and login NOT IN (SELECT DISTINCT login from github_issue_comment)"
+    # # GraphQL.crawlUserIssueComment(paths.github_user_issue_comments, queries.query_github_user_issue_comments,
+    # #                              sql_for_user_issue_comment)
+    # Database.writeUserIssueComment(paths.github_user_issue_comments, sql_for_user_issue_comment)

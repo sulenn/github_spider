@@ -12,6 +12,8 @@ import numpy as np
 # load logger
 base.setup_logging(base.logging_path, logging.DEBUG)
 
+one_day = 86400
+two_day = 172800
 two_month = 5184000
 one_month = 2592000
 three_month = 7776000
@@ -176,33 +178,33 @@ def analyze_user_commit_activity(month, accepted_time, sponsor_times):
     datas = [all_data, first_half_data, second_half_data]
     data_clean_IQR(datas)
 
-    x = range(1, len(datas[0])+1, 1)
-    plt.figure(1, figsize=(20, 8), dpi=80)
-    plt.subplot(2, 3, 1)
-    plt.scatter(x, datas[0], s=10)
-    plt.subplot(2, 3, 2)
-    plt.scatter(x, datas[1], s=10)
-    plt.subplot(2, 3, 3)
-    plt.scatter(x, datas[2], s=10)
-    plt.subplot(2, 3, 4)
-    sns.boxplot(y=datas[0])
-    plt.subplot(2, 3, 5)
-    sns.boxplot(y=datas[1])
-    plt.subplot(2, 3, 6)
-    sns.boxplot(y=datas[2])
-    plt.show()
-
-    # pandas.describe
-    s = pd.Series(datas[0])
-    logging.info(s.describe())
-    s = pd.Series(datas[1])
-    logging.info(s.describe())
-    s = pd.Series(datas[2])
-    logging.info(s.describe())
-
-    logging.info("datas[0]: " + str(len(datas[0])))
-    logging.info("datas[1]: " + str(len(datas[1])))
-    logging.info("datas[1]: " + str(len(datas[2])))
+    # x = range(1, len(datas[0])+1, 1)
+    # plt.figure(1, figsize=(20, 8), dpi=80)
+    # plt.subplot(2, 3, 1)
+    # plt.scatter(x, datas[0], s=10)
+    # plt.subplot(2, 3, 2)
+    # plt.scatter(x, datas[1], s=10)
+    # plt.subplot(2, 3, 3)
+    # plt.scatter(x, datas[2], s=10)
+    # plt.subplot(2, 3, 4)
+    # sns.boxplot(y=datas[0])
+    # plt.subplot(2, 3, 5)
+    # sns.boxplot(y=datas[1])
+    # plt.subplot(2, 3, 6)
+    # sns.boxplot(y=datas[2])
+    # plt.show()
+    #
+    # # pandas.describe
+    # s = pd.Series(datas[0])
+    # logging.info(s.describe())
+    # s = pd.Series(datas[1])
+    # logging.info(s.describe())
+    # s = pd.Series(datas[2])
+    # logging.info(s.describe())
+    #
+    # logging.info("datas[0]: " + str(len(datas[0])))
+    # logging.info("datas[1]: " + str(len(datas[1])))
+    # logging.info("datas[1]: " + str(len(datas[2])))
 
     # Wilcoxon
     logging.info(stats.wilcoxon(datas[0], datas[1]))
@@ -214,7 +216,7 @@ def analyze_user_commit_activity(month, accepted_time, sponsor_times):
     return float(sum(datas[2])) / float(sum(datas[1]))
 
 def analyze_user_issue_comment_activity(month, accepted_time, sponsor_times):
-    users_activity_change = get_activity_changes(month, sql.user_issue_comment_sql, accepted_time, sponsor_times)
+    users_activity_change = get_activity_changes(month, sql.user_pr_review_sql, accepted_time, sponsor_times)
     first_half_data = []
     second_half_data = []
     all_data = []
@@ -229,8 +231,8 @@ def analyze_user_issue_comment_activity(month, accepted_time, sponsor_times):
             # continue
         first_half_data.append(int(item[1]))
         second_half_data.append(int(item[2]))
-        logging.info("username: " + item[0] + ", sum1: " + str(item[1]) +
-                     ", sum2: " + str(item[2]))
+        # logging.info("username: " + item[0] + ", sum1: " + str(item[1]) +
+        #              ", sum2: " + str(item[2]))
         all_data.append(int(item[2]) + int(item[1]))
         diff_values.append(int(item[2]) - int(item[1]))
 
@@ -241,37 +243,42 @@ def analyze_user_issue_comment_activity(month, accepted_time, sponsor_times):
     datas = [all_data, first_half_data, second_half_data]
     data_clean_IQR(datas)
 
-    x = range(1, len(datas[0])+1, 1)
-    plt.figure(1, figsize=(20, 8), dpi=80)
-    plt.subplot(2, 3, 1)
-    plt.scatter(x, datas[0], s=10)
-    plt.subplot(2, 3, 2)
-    plt.scatter(x, datas[1], s=10)
-    plt.subplot(2, 3, 3)
-    plt.scatter(x, datas[2], s=10)
-    plt.subplot(2, 3, 4)
-    sns.boxplot(y=datas[0])
-    plt.subplot(2, 3, 5)
-    sns.boxplot(y=datas[1])
-    plt.subplot(2, 3, 6)
-    sns.boxplot(y=datas[2])
-    plt.show()
-
-    # pandas.describe
-    s = pd.Series(datas[0])
-    logging.info(s.describe())
-    s = pd.Series(datas[1])
-    logging.info(s.describe())
-    s = pd.Series(datas[2])
-    logging.info(s.describe())
-
-    logging.info("datas[0]: " + str(len(datas[0])))
-    logging.info("datas[1]: " + str(len(datas[1])))
-    logging.info("datas[1]: " + str(len(datas[2])))
+    # x = range(1, len(datas[0])+1, 1)
+    # plt.figure(1, figsize=(20, 8), dpi=80)
+    # plt.subplot(2, 3, 1)
+    # plt.scatter(x, datas[0], s=10)
+    # plt.subplot(2, 3, 2)
+    # plt.scatter(x, datas[1], s=10)
+    # plt.subplot(2, 3, 3)
+    # plt.scatter(x, datas[2], s=10)
+    # plt.subplot(2, 3, 4)
+    # sns.boxplot(y=datas[0])
+    # plt.subplot(2, 3, 5)
+    # sns.boxplot(y=datas[1])
+    # plt.subplot(2, 3, 6)
+    # sns.boxplot(y=datas[2])
+    # plt.show()
+    #
+    # # pandas.describe
+    # s = pd.Series(datas[0])
+    # logging.info(s.describe())
+    # s = pd.Series(datas[1])
+    # logging.info(s.describe())
+    # s = pd.Series(datas[2])
+    # logging.info(s.describe())
+    #
+    # logging.info("datas[0]: " + str(len(datas[0])))
+    # logging.info("datas[1]: " + str(len(datas[1])))
+    # logging.info("datas[1]: " + str(len(datas[2])))
 
     # Wilcoxon
     logging.info(stats.wilcoxon(datas[0], datas[1]))
+    _, p = stats.wilcoxon(datas[0], datas[1])
     logging.info(stats.mannwhitneyu(datas[0], datas[1]))
+
+    # Sponsor The ratio of the number of commits
+    # after sponsorship to before sponsorship
+    return float(sum(datas[2])) / float(sum(datas[1]))
 
 def cal_quantile():
     # create database connection
@@ -294,26 +301,182 @@ def cal_quantile():
 
     logging.info(percentile)
 
+# analyze commit changes with sponsor times
+def analyze_commit_changes_with_sponsor_times(login, sponsor_count):
+    sql_for_created_at = """
+        SELECT created_at
+        FROM github_sponsorships_as_maintainer
+        WHERE login='%s'
+        ORDER BY created_at ASC
+    """
+    sql_for_created_at = sql_for_created_at % login
+
+    # create database connection
+    db = base.connectMysqlDB(config)
+    cur = db.cursor()
+    cur.execute(sql_for_created_at)
+    items = cur.fetchall()
+    created_at_list = []
+    for item in items:
+        created_at_list.append(base.timestamp_to_time(base.datetime_to_timestamp((item[0]))))
+
+    sponsor_counts = []
+    commit_counts = []
+    commit_count = 0
+    i = 0
+    while i < len(created_at_list):
+        first_time = created_at_list[i]
+        i += sponsor_count
+        if i >= len(created_at_list):
+            break
+        second_time = created_at_list[i]
+        cur.execute(sql.user_commit_sql % (login, first_time, second_time))
+        item = cur.fetchone()
+        if item[0] is None:
+            commit_count += 0
+        else:
+            commit_count += item[0]
+        sponsor_counts.append(second_time)
+        commit_counts.append(commit_count)
+
+    return sponsor_counts, commit_counts
+
+    # logging.info("the first sponsor time: " + str(created_at_list[0]))
+    # logging.info("the last sponsor time: " + str(created_at_list[len(created_at_list)-1]))
+    # logging.info("length: " + str(len(sponsor_counts)))
+    # plt.figure(1, figsize=(20, 8), dpi=80)
+    # plt.subplot(1, 2, 1)
+    # plt.xlabel("sponsor times")
+    # plt.ylabel("commit times")
+    # plt.plot(sponsor_counts, commit_counts)
+
+    # # get commit picture before sponsor ago
+    # time2 = created_at_list[0]
+    # time3 = created_at_list[len(created_at_list)-1]
+    # time1 = base.timestamp_to_time(2*base.time_string_to_timestamp(time2) - base.time_string_to_timestamp(time3))
+    # arg1, arg2 = generate_commit_line_chart(login, time1, time2)
+    # plt.subplot(1, 2, 2)
+    # plt.xlabel("time")
+    # plt.ylabel("commit times")
+    # plt.plot(arg1, arg2)
+    # plt.show()
+    #
+    # # close this database connection
+    # cur.close()
+    # db.close()
+
+def generate_commit_line_chart(login, start_time, end_time):
+    # create database connection
+    db = base.connectMysqlDB(config)
+    cur = db.cursor()
+    first_time = base.time_string_to_timestamp(start_time)
+    time_interval = 172800
+    second_time = first_time+time_interval
+    end_time = base.time_string_to_timestamp(end_time)
+    x_s = []
+    commit_counts = []
+    commit_count = 0
+    while second_time <= end_time:
+        x_s.append(base.timestamp_to_time(second_time))
+        cur.execute(sql.user_commit_sql % (login, base.timestamp_to_time(first_time), base.timestamp_to_time(second_time)))
+        item = cur.fetchone()
+        if item[0] is None:
+            commit_count += 0
+        else:
+            commit_count += item[0]
+        commit_counts.append(commit_count)
+        first_time = second_time
+        second_time += time_interval
+
+    # close this database connection
+    cur.close()
+    db.close()
+    return x_s,
+
+def generate_picture1(login):
+    # create database connection
+    db = base.connectMysqlDB(config)
+    cur = db.cursor()
+    sql_for_min_max_time = """
+            SELECT MIN(created_at), MAX(created_at)
+            FROM github_sponsorships_as_maintainer
+            WHERE login='%s'
+        """
+    cur.execute(sql_for_min_max_time % login)
+    item = cur.fetchall()
+    mid_time = base.datetime_to_timestamp(item[0][0])
+    max_time = base.datetime_to_timestamp(item[0][1])
+    min_time = 2*mid_time - max_time
+    first_time = min_time
+    second_time = first_time + two_day
+    x_s = []
+    commit_counts = []
+    commit_count = 0
+    while second_time <= max_time:
+        x_s.append(second_time)
+        cur.execute(
+            sql.user_commit_sql % (login, base.timestamp_to_time(first_time), base.timestamp_to_time(second_time)))
+        item = cur.fetchone()
+        if item[0] is None:
+            commit_count += 0
+        else:
+            commit_count += item[0]
+        commit_counts.append(commit_count)
+        first_time = second_time
+        second_time += two_day
+
+    logging.info(str(base.timestamp_to_time(min_time)))
+    logging.info(str(base.timestamp_to_time(mid_time)))
+    logging.info(str(base.timestamp_to_time(max_time)))
+
+    plt.figure(1, figsize=(20, 8), dpi=80)
+    # plt.subplot(1, 2, 1)
+    plt.xlabel("time")
+    plt.ylabel("commit times")
+    plt.plot(x_s, commit_counts)
+
+    cur.execute(
+        sql.user_commit_sql % (login, base.timestamp_to_time(min_time), base.timestamp_to_time(mid_time)))
+    item = cur.fetchone()
+    data1, data2 = analyze_commit_changes_with_sponsor_times(login, 1)
+    j = 0
+    while j<len(data2):
+        data2[j] += item[0]
+        data1[j] = base.time_string_to_timestamp(data1[j])
+        j += 1
+    plt.scatter(data1, data2, s=15, c='red')
+    plt.show()
+
+    # close this database connection
+    cur.close()
+    db.close()
+    # return x_s, commit_counts
+
 if __name__ == "__main__":
     # analyze_nums_change("calebporzio", sql.user_issue_comment_sql, "user issue comment")
     # logging.info("qiubing")
-    analyze_user_commit_activity(two_month, one_year, 1)
+    # analyze_user_commit_activity(three_month, one_year, 1)
     # analyze_user_issue_comment_activity(two_month, one_year, 1)
-    # cal_quantile()
 
-    # # statistics commit p value
-    # count = 128
-    # i = 1
-    # compare_value_list = []
-    # x = range(1, count + 1, 1)
-    # while i <= count:
-    #     logging.info(str(i))
-    #     compare_value = analyze_user_commit_activity(four_month, one_year, i)
-    #     compare_value_list.append(compare_value)
-    #     i += 1
-    # logging.info(compare_value_list)
-    # plt.figure(1, figsize=(20, 8), dpi=80)
-    # plt.xlabel("sponsor times")
-    # plt.ylabel("commit ratio")
-    # plt.plot(x, compare_value_list)
-    # plt.show()
+    # statistics the radio of sponsor changes
+    count = 128
+    i = 1
+    compare_value_list = []
+    step_size = 1
+    x = range(1, count + 1, step_size)
+    while i <= count:
+        logging.info(str(i))
+        # compare_value = analyze_user_commit_activity(three_month, one_year, i)
+        compare_value = analyze_user_issue_comment_activity(three_month, one_year, i)
+        compare_value_list.append(compare_value)
+        i += step_size
+    logging.info(compare_value_list)
+    plt.figure(1, figsize=(20, 8), dpi=80)
+    plt.xlabel("sponsor times")
+    plt.ylabel("commit ratio")
+    plt.plot(x, compare_value_list)
+    plt.show()
+
+    # analyze_commit_changes_with_sponsor_times("rstoenescu", 1)
+    # generate_commit_line_chart("rstoenescu", "2019-06-18 15:06:12", "2020-11-15 05:44:26")
+    # generate_picture1("rstoenescu")
