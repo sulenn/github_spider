@@ -3,8 +3,13 @@ from utils import base
 from utils import sql
 import yaml as yaml
 from matplotlib import pyplot as plt
+import logging
+
+# load logger
+base.setup_logging(base.logging_path, logging.DEBUG)
 
 end_time = "2020-11-12 00:00:00"
+two_month = 5184000
 
 f = open('config.yaml', 'r')
 config = yaml.load(f.read(), Loader=yaml.BaseLoader)
@@ -26,8 +31,8 @@ def get_time_range(username):
         cur.close()
         db.close()
     except Exception as e:
-        print "get_time_range failed"
-        print e
+        logging.error("get_time_range failed")
+        logging.error(e)
     last_time = base.time_string_to_timestamp(end_time)
     first_time = 2*earliest_sponsor_time - last_time
     mid_time = earliest_sponsor_time
@@ -38,7 +43,7 @@ def analyze_nums_change(username, sql, compare_name):
     first_time = base.timestamp_to_time(times[0])
     mid_time = base.timestamp_to_time(times[1])
     last_time = base.timestamp_to_time(times[2])
-    print "first_time: " + first_time + ", mid_time: " + mid_time + ", last_time: " + last_time
+    logging.info("first_time: " + first_time + ", mid_time: " + mid_time + ", last_time: " + last_time)
 
     # create database connection
     db = base.connectMysqlDB(config)
@@ -70,8 +75,40 @@ def analyze_nums_change(username, sql, compare_name):
     plt.title(compare_name)
     plt.show()
 
-    print "sum1: " + str(sum1) + ", sum2: " + str(sum2)
+    logging.info("sum1: " + str(sum1) + ", sum2: " + str(sum2))
+
+def get_all_user_earliest_maintainer_time(month, sql=sql.all_user_earliest_maintainer_time):
+    # create database connection
+    db = base.connectMysqlDB(config)
+    cur = db.cursor()
+
+    # get get_all_user_earliest_maintainer_time
+    sql1 = sql
+    cur.execute(sql1)
+    items = cur.fetchall()
+    logging.info(str(items))
+
+    # generate time interval
+    users_time_interval = []
+    for item in items:
+        start_time = base.timestamp_to_time(base.datetime_to_timestamp(item[1])-month)
+        end_time = base.timestamp_to_time(base.datetime_to_timestamp(item[1])+month)
+        users_time_interval.append([item[0], start_time, item[1], end_time])
+
+    # generate activity change
+    users_acticity_change = []
+    for item in users_time_interval:
+        first_time = base.timestamp_to_time(item[1])
+        mid_time = base.timestamp_to_time(item[2])
+        last_time = base.timestamp_to_time(item[3])
+        logging.info("first_time: " + first_time + ", mid_time: " + mid_time + ", last_time: " + last_time)
+
+    # close this database connection
+    cur.close()
+    db.close()
 
 if __name__ == "__main__":
-    analyze_nums_change("calebporzio", sql.user_issue_comment_sql, "user issue comment")
-    print "qiubing"
+    # analyze_nums_change("calebporzio", sql.user_issue_comment_sql, "user issue comment")
+    # logging.info("qiubing")
+    get_all_user_earliest_maintainer_time(two_month)
+
