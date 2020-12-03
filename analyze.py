@@ -14,6 +14,8 @@ base.setup_logging(base.logging_path, logging.DEBUG)
 
 one_day = 86400
 two_day = 172800
+one_week = one_day*7
+two_week = one_week*2
 two_month = 5184000
 one_month = 2592000
 three_month = 7776000
@@ -178,6 +180,8 @@ def analyze_user_commit_activity(month, accepted_time, sponsor_times):
     datas = [all_data, first_half_data, second_half_data]
     data_clean_IQR(datas)
 
+    logging.info("real data sum: " + str(len(datas[0])))
+
     # x = range(1, len(datas[0])+1, 1)
     # plt.figure(1, figsize=(20, 8), dpi=80)
     # plt.subplot(2, 3, 1)
@@ -207,16 +211,70 @@ def analyze_user_commit_activity(month, accepted_time, sponsor_times):
     # logging.info("datas[1]: " + str(len(datas[2])))
 
     # Wilcoxon
-    logging.info(stats.wilcoxon(datas[0], datas[1]))
-    _, p = stats.wilcoxon(datas[0], datas[1])
-    logging.info(stats.mannwhitneyu(datas[0], datas[1]))
+    logging.info(stats.wilcoxon(datas[1], datas[2]))
+    _, p = stats.wilcoxon(datas[1], datas[2])
+    logging.info(stats.mannwhitneyu(datas[1], datas[2]))
+
+    # Sponsor The ratio of the number of commits
+    # after sponsorship to before sponsorship
+    return float(sum(datas[2])) / float(sum(datas[1]))
+
+def analyze_user_commit_activity_by_four_bit_picture(month, accepted_time, sponsor_times):
+    users_activity_change = get_activity_changes(month, sql.user_commit_sql, accepted_time, sponsor_times)
+    first_half_data = []
+    second_half_data = []
+    all_data = []
+    diff_values = []
+    positive_sum = 0
+    negtive_sum = 0
+    for item in users_activity_change:
+        if int(item[2]) - int(item[1]) > 0:
+            positive_sum += 1
+        else:
+            negtive_sum += 1
+            # continue
+        first_half_data.append(int(item[1]))
+        second_half_data.append(int(item[2]))
+        # logging.info("username: " + item[0] + ", sum1: " + str(item[1]) +
+        #              ", sum2: " + str(item[2]))
+        all_data.append(int(item[2]) + int(item[1]))
+        diff_values.append(int(item[2]) - int(item[1]))
+
+    logging.info("data sum: " + str(len(users_activity_change)))
+    logging.info("positive_sum: " + str(positive_sum) + ", negtive_sum: " + str(negtive_sum))
+
+    # IQR, data clean
+    datas = [all_data, first_half_data, second_half_data]
+    data_clean_IQR(datas)
+
+    # data clean
+    s = pd.Series(datas[0])
+    logging.info(s.describe())
+    # clean small than 75% data
+    percent75 = s.describe().get("75%")
+    length = len(datas[0])
+    i = 0
+    while i < length:
+        if datas[0][i]<percent75:
+            j = 0
+            while j < len(datas):
+                del datas[j][i]
+                j += 1
+            length -= 1
+            continue
+        i += 1
+
+    # Wilcoxon
+    logging.info(stats.wilcoxon(datas[1], datas[2]))
+    _, p = stats.wilcoxon(datas[1], datas[2])
+    logging.info(stats.mannwhitneyu(datas[1], datas[2]))
 
     # Sponsor The ratio of the number of commits
     # after sponsorship to before sponsorship
     return float(sum(datas[2])) / float(sum(datas[1]))
 
 def analyze_user_issue_comment_activity(month, accepted_time, sponsor_times):
-    users_activity_change = get_activity_changes(month, sql.user_pr_review_sql, accepted_time, sponsor_times)
+    users_activity_change = get_activity_changes(month, sql.user_issue_comment_sql, accepted_time, sponsor_times)
     first_half_data = []
     second_half_data = []
     all_data = []
@@ -393,6 +451,7 @@ def generate_commit_line_chart(login, start_time, end_time):
     db.close()
     return x_s,
 
+# generate the activity changes picture of one user, include line chart and scatter diagram
 def generate_picture1(login):
     # create database connection
     db = base.connectMysqlDB(config)
@@ -452,31 +511,128 @@ def generate_picture1(login):
     db.close()
     # return x_s, commit_counts
 
+def classify_user_by_commit_sum():
+    time_interval = one_month
+    sql_for_all_sponsorlisting_created_at =  """
+                            SELECT login, created_at
+                            FROM github_sponsor_listing
+                            WHERE login in (SELECT login FROM github_user WHERE spon_maintainer_count > 0)
+                            """
+    # create database connection
+    db = base.connectMysqlDB(config)
+    cur = db.cursor()
+    # classify user by commit sum
+    cur.execute(sql_for_all_sponsorlisting_created_at)
+    items = cur.fetchall()
+    login_and_commit_list = []
+    commit_list = []
+    for item in items:
+        end_time = base.timestamp_to_time(base.datetime_to_timestamp(item[1]))
+        start_time = base.timestamp_to_time(base.datetime_to_timestamp(item[1])-time_interval)
+        cur.execute(sql.user_commit_sql % (item[0], start_time, end_time))
+        sub_item = cur.fetchone()
+        commit_sum = int(sub_item[0])
+        login_and_commit_list.append([item[0], commit_sum])
+        commit_list.append(commit_sum)
+
+    percentile = np.percentile(commit_list, [33, 67])
+    percent33 = percentile[0]
+    percent67 = percentile[1]
+    logging.info("33% num of commit sum is: " + str(percent33))
+    logging.info("67% num of commit sum is: " + str(percent67))
+    login_percent33_list = []
+    login_percent67_list = []
+    login_percent100_list = []
+    for login_and_commit in login_and_commit_list:
+        if login_and_commit[1] <= percent33:
+            login_percent33_list.append(login_and_commit[0])
+        elif login_and_commit[1] <= percent67:
+            login_percent67_list.append(login_and_commit[0])
+        else:
+            login_percent100_list.append(login_and_commit[0])
+    login_percent_lists = [login_percent33_list, login_percent67_list, login_percent100_list]
+
+    # wilcoxon analysis
+    sql_for_sponsorlisting_created_at = """
+                                SELECT created_at
+                                FROM github_sponsor_listing
+                                WHERE login='%s'
+                                """
+    time_interval_for_wilcoxon = one_month
+    for login_percent_list in login_percent_lists:
+        activity_change_list = []
+        for login in login_percent_list:
+            cur.execute(sql_for_sponsorlisting_created_at % login)
+            sub_item = cur.fetchone()
+            mid_time = base.datetime_to_timestamp(sub_item[0])
+            start_time = mid_time - time_interval_for_wilcoxon
+            end_time = mid_time + time_interval_for_wilcoxon
+            # data clean, delete the data that end_time is greater than global_end_time
+            if end_time > base.time_string_to_timestamp(global_end_time):
+                continue
+
+            # data clean, delete the user that time between created_time and sponsored_time is not satisfied one year
+            cur.execute(sql.get_user_created_time % login)
+            created_time = cur.fetchone()
+            if mid_time - base.datetime_to_timestamp(created_time[0]) < one_year:
+                continue
+
+            activity_change = analyze_nums_change(sql.user_commit_sql, login, base.timestamp_to_time(start_time),
+                                                  base.timestamp_to_time(mid_time),
+                                                  base.timestamp_to_time(end_time))
+            if activity_change[0] is None:
+                activity_change[0] = 0
+            if activity_change[1] is None:
+                activity_change[1] = 0
+            activity_change_list.append([int(activity_change[0])+int(activity_change[1]), int(activity_change[0]), int(activity_change[1])])
+        datas = [[], [], []]
+        for activity_change in activity_change_list:
+            datas[0].append(activity_change[0])
+            datas[1].append(activity_change[1])
+            datas[2].append(activity_change[2])
+        logging.info("data sum: " + str(len(datas[0])))
+        # IQR, data clean
+        data_clean_IQR(datas)
+        logging.info("real data sum: " + str(len(datas[0])))
+        s = pd.Series(datas[1])
+        logging.info(s.describe())
+        s = pd.Series(datas[2])
+        logging.info(s.describe())
+        logging.info(stats.wilcoxon(datas[1], datas[2]))
+        logging.info(stats.mannwhitneyu(datas[1], datas[2]))
+    # close this database connection
+    cur.close()
+    db.close()
+    # return login_percent33_list, login_percent67_list, login_percent100_list
+
 if __name__ == "__main__":
     # analyze_nums_change("calebporzio", sql.user_issue_comment_sql, "user issue comment")
     # logging.info("qiubing")
-    # analyze_user_commit_activity(three_month, one_year, 1)
+    # analyze_user_commit_activity(three_month, one_year, 64)
     # analyze_user_issue_comment_activity(two_month, one_year, 1)
 
-    # statistics the radio of sponsor changes
-    count = 128
-    i = 1
-    compare_value_list = []
-    step_size = 1
-    x = range(1, count + 1, step_size)
-    while i <= count:
-        logging.info(str(i))
-        # compare_value = analyze_user_commit_activity(three_month, one_year, i)
-        compare_value = analyze_user_issue_comment_activity(three_month, one_year, i)
-        compare_value_list.append(compare_value)
-        i += step_size
-    logging.info(compare_value_list)
-    plt.figure(1, figsize=(20, 8), dpi=80)
-    plt.xlabel("sponsor times")
-    plt.ylabel("commit ratio")
-    plt.plot(x, compare_value_list)
-    plt.show()
+    # # statistics the radio of sponsor changes
+    # count = 64
+    # i = 1
+    # compare_value_list = []
+    # step_size = 1
+    # x = range(1, count + 1, step_size)
+    # while i <= count:
+    #     logging.info(str(i))
+    #     compare_value = analyze_user_commit_activity(two_week, one_year, i)
+    #     # compare_value = analyze_user_issue_comment_activity(three_month, one_year, i)
+    #     # compare_value = analyze_user_commit_activity_by_four_bit_picture(three_month, one_year, i)
+    #     compare_value_list.append(compare_value)
+    #     i += step_size
+    # logging.info(compare_value_list)
+    # plt.figure(1, figsize=(20, 8), dpi=80)
+    # plt.xlabel("sponsor times")
+    # plt.ylabel("commit ratio")
+    # plt.plot(x, compare_value_list)
+    # plt.show()
 
     # analyze_commit_changes_with_sponsor_times("rstoenescu", 1)
     # generate_commit_line_chart("rstoenescu", "2019-06-18 15:06:12", "2020-11-15 05:44:26")
     # generate_picture1("rstoenescu")
+
+    classify_user_by_commit_sum()

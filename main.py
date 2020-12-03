@@ -82,6 +82,7 @@ def cycle_supply_user_data_by_sponsorships_as_sponsor_and_maintainer():
 f = open('config.yaml', 'r')
 config = yaml.load(f.read(), Loader=yaml.BaseLoader)
 
+# insert user data from xunhui brother
 def insert_user():
     # read all the users
     f = open('users_with_sponsorList.txt', 'r')
@@ -103,8 +104,20 @@ def insert_user():
     cur.close()
     db.close()
 
+def crawl_user_info_from_init_user_tabke():
+    sql_for_login = "select distinct login \
+                        from init_user \
+                        WHERE login NOT IN (SELECT login from github_user)"
+    if not base.judge_sql_result(sql_for_login):
+        logging.warn("no more login to crawl and write from init_user")
+        return
+    logging.info("crawl user data, save json file from init_user")
+    GraphQL.crawlUser(paths.github_user_info, queries.query_github_user_info, sql_for_login)
+    logging.info("write user database from init_user")
+    Database.writeGithubUser(paths.github_user_info, sql_for_login)
+
 if __name__ == "__main__":
-    insert_user()
+    # crawl_user_info_from_init_user_tabke()
     # cycle_supply_user_data_by_sponsorships_as_sponsor_and_maintainer()
 
     # # handle github user info
@@ -114,13 +127,13 @@ if __name__ == "__main__":
     # GraphQL.crawlGithubUser(paths.github_user_info, queries.query_github_user_info, sql_for_user)
     # Database.writeGithubUser(paths.github_user_info)
 
-    # # handle github user sponsor listing info
-    # sql_for_sponsor_listing = "select login \
-    #                             from github_user \
-    #                             WHERE spon_maintainer_count>0 and login NOT IN (SELECT login from github_sponsor_listing)"
-    # logging.info("handle github user sponsor listing info")
-    # GraphQL.crawlCommon(paths.github_user_sponsor_listing_info, queries.query_github_user_sponsor_listing_info, sql_for_sponsor_listing)
-    # Database.writeGithubSponsorListing(paths.github_user_sponsor_listing_info, sql_for_sponsor_listing)
+    # handle github user sponsor listing info
+    sql_for_sponsor_listing = "select login \
+                                from github_user \
+                                WHERE spon_maintainer_count>0 and login NOT IN (SELECT login from github_sponsor_listing)"
+    logging.info("handle github user sponsor listing info")
+    GraphQL.crawlCommon(paths.github_user_sponsor_listing_info, queries.query_github_user_sponsor_listing_info, sql_for_sponsor_listing)
+    Database.writeGithubSponsorListing(paths.github_user_sponsor_listing_info, sql_for_sponsor_listing)
 
     # # handle github user sponsor listing tiers info
     # sql_for_sponsor_listing_tiers = "select login \

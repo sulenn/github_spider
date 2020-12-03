@@ -16,7 +16,7 @@ from requests.exceptions import ConnectionError, ReadTimeout
 # db config file
 f = open('config.yaml', 'r')
 config = yaml.load(f.read(), Loader=yaml.BaseLoader)
-THREAD_NUM = 20
+THREAD_NUM = 15
 base_path = ""
 query = ""
 start_time = ""
@@ -138,7 +138,6 @@ def crawlUser(p, q, sql):
 
     if len(unhandled_tasks) == 0:
         logging.warn("finish")
-        print
         return
 
     for task in unhandled_tasks:
