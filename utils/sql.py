@@ -43,7 +43,7 @@ user_issue_comment_sql = """
                 """
 
 all_user_earliest_maintainer_time = """
-                SELECT login, min(created_at) AS min_time
+                SELECT login, min(created_at) AS created_at
                 FROM github_sponsorships_as_maintainer
                 GROUP BY login
                 HAVING COUNT(*) >= %s

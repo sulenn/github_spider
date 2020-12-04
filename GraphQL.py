@@ -9,6 +9,7 @@ import json
 from utils import base
 import requests
 import Database
+import time
 import logging
 from requests.exceptions import ConnectionError, ReadTimeout
 
@@ -28,7 +29,7 @@ f = open('github_tokens.txt', 'r')
 github_tokens = f.read().strip().split("\n")
 
 sleep_time_tokens = {} # record the sleep time of each token
-sleep_gap_token = 1.8 # the sleep time of each token
+sleep_gap_token = 60 # the sleep time of each token
 for token in github_tokens:
     sleep_time_tokens.setdefault(token, -1)
 
@@ -1051,15 +1052,17 @@ class crawlUserIssueCommentThread(threading.Thread):
                 # print "headers is: " + str(headers)
                 values = {"query": query % (login, after_cursor), "variables": {}}
                 try:
-                    response = requests.post(url=url, headers=headers, json=values)
+                    response = requests.post(url=url, headers=headers, json=values, timeout = 40)
                     if response.status_code != 200:
                         logging.error("response.status_code: " + str(response.status_code))
+                        sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
                         continue
                     response_json = response.json()
                     if "errors" in response_json:
                         logging.error(json.dumps(response_json))
+                        sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
                         if "type" not in response_json["errors"][0]:
-                            logging.error("unknown error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
+                            logging.fatal("unknown error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
                             break
                         logging.error("nomal error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
                         continue
@@ -1078,9 +1081,11 @@ class crawlUserIssueCommentThread(threading.Thread):
                         continue
                 except (ConnectionError, ReadTimeout) as e:
                     logging.error(e)
+                    sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
                     continue
                 except Exception as e:
                     logging.fatal(e)
-                    return
+                    sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
+                    # return
                 break
             self.q.task_done()

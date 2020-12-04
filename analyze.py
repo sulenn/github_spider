@@ -8,6 +8,7 @@ from scipy import stats
 import pandas as pd
 import seaborn as sns
 import numpy as np
+import cliffsDelta
 
 # load logger
 base.setup_logging(base.logging_path, logging.DEBUG)
@@ -513,11 +514,17 @@ def generate_picture1(login):
 
 def classify_user_by_commit_sum():
     time_interval = one_month
+    # sql_for_all_sponsorlisting_created_at =  """
+    #                         SELECT login, created_at
+    #                         FROM github_sponsor_listing
+    #                         WHERE login in (SELECT login FROM github_user WHERE spon_maintainer_count > 0)
+    #                         """
     sql_for_all_sponsorlisting_created_at =  """
-                            SELECT login, created_at
-                            FROM github_sponsor_listing
-                            WHERE login in (SELECT login FROM github_user WHERE spon_maintainer_count > 0)
-                            """
+                SELECT login, min(created_at) AS created_at
+                FROM github_sponsorships_as_maintainer
+                GROUP BY login
+                HAVING COUNT(*) >= 1
+                """
     # create database connection
     db = base.connectMysqlDB(config)
     cur = db.cursor()
@@ -553,9 +560,14 @@ def classify_user_by_commit_sum():
     login_percent_lists = [login_percent33_list, login_percent67_list, login_percent100_list]
 
     # wilcoxon analysis
+    # sql_for_sponsorlisting_created_at = """
+    #                             SELECT created_at
+    #                             FROM github_sponsor_listing
+    #                             WHERE login='%s'
+    #                             """
     sql_for_sponsorlisting_created_at = """
-                                SELECT created_at
-                                FROM github_sponsor_listing
+                                SELECT min(created_at) AS created_at
+                                FROM github_sponsorships_as_maintainer
                                 WHERE login='%s'
                                 """
     time_interval_for_wilcoxon = one_month
@@ -591,8 +603,8 @@ def classify_user_by_commit_sum():
             datas[1].append(activity_change[1])
             datas[2].append(activity_change[2])
         logging.info("data sum: " + str(len(datas[0])))
-        # IQR, data clean
-        data_clean_IQR(datas)
+        # # IQR, data clean
+        # data_clean_IQR(datas)
         logging.info("real data sum: " + str(len(datas[0])))
         s = pd.Series(datas[1])
         logging.info(s.describe())
@@ -600,6 +612,9 @@ def classify_user_by_commit_sum():
         logging.info(s.describe())
         logging.info(stats.wilcoxon(datas[1], datas[2]))
         logging.info(stats.mannwhitneyu(datas[1], datas[2]))
+        d, res = cliffsDelta.cliffsDelta(datas[1], datas[2])
+        logging.info("d: " + str(d))
+        logging.info("res: " + str(res))
     # close this database connection
     cur.close()
     db.close()
