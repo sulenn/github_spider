@@ -21,3 +21,5 @@ github_user_repositories = "/home/qiubing/github/sponsor/user/repository"
 github_user_commit_comments = "/home/qiubing/github/sponsor/user/commit-comments"
 
 github_user_issue_comments = "/home/qiubing/github/sponsor/user/issue-comments"
+
+github_all_user_sponsor_listing_info = "/home/qiubing/github/sponsor/all/user/sponsorlisting"

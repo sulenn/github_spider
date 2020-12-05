@@ -16,7 +16,7 @@ from requests.exceptions import ConnectionError, ReadTimeout
 # db config file
 f = open('config.yaml', 'r')
 config = yaml.load(f.read(), Loader=yaml.BaseLoader)
-THREAD_NUM = 15
+THREAD_NUM = 25
 base_path = ""
 query = ""
 start_time = ""
@@ -1051,18 +1051,17 @@ class crawlUserIssueCommentThread(threading.Thread):
                 # print "headers is: " + str(headers)
                 values = {"query": query % (login, after_cursor), "variables": {}}
                 try:
-                    response = requests.post(url=url, headers=headers, json=values, timeout = 40)
+                    response = requests.post(url=url, headers=headers, json=values)
                     if response.status_code != 200:
                         logging.error("response.status_code: " + str(response.status_code))
-                        sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
                         continue
                     response_json = response.json()
                     if "errors" in response_json:
                         logging.error(json.dumps(response_json))
-                        sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
                         if "type" not in response_json["errors"][0]:
                             logging.fatal("unknown error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                            break
+                            logging.info("login: " + login + ", count: " + str(count))
+                            continue
                         logging.error("nomal error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
                         continue
                     # 写入文件
@@ -1080,11 +1079,104 @@ class crawlUserIssueCommentThread(threading.Thread):
                         continue
                 except (ConnectionError, ReadTimeout) as e:
                     logging.error(e)
-                    sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
                     continue
                 except Exception as e:
                     logging.fatal(e)
-                    sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
+                    continue
                     # return
+                break
+            self.q.task_done()
+
+# crawl all user sponsor listing data
+def crawlAllUserSponsorListing(p, q, sql):
+    global base_path
+    global query
+    base_path = p
+    query = q
+    workQueue = Queue.Queue()
+
+    # create database connection
+    db = base.connectMysqlDB(config)
+    cur = db.cursor()
+
+    # read all the repos
+    unhandled_tasks = []
+    cur.execute(sql)
+    items = cur.fetchall()
+    for item in items:
+        unhandled_tasks.append({"login": item[0]})
+    logging.info("finish reading database")
+    logging.info("%d tasks left for handling" % (len(unhandled_tasks)))
+
+    # close this database connection
+    cur.close()
+    db.close()
+
+    if len(unhandled_tasks) == 0:
+        logging.warn("finish")
+        return
+
+    for task in unhandled_tasks:
+        workQueue.put_nowait(task)
+
+    for _ in range(THREAD_NUM):
+        crawlAllUserSponsorListingThread(workQueue).start()
+    workQueue.join()
+
+    logging.info("finish")
+
+class crawlAllUserSponsorListingThread(threading.Thread):
+    def __init__(self, q):
+        threading.Thread.__init__(self)
+        self.q = q
+    def run(self):
+        while not self.q.empty():
+            work = self.q.get(timeout=0)
+            logging.info("the number of work in queue: " + str(self.q.qsize()))
+
+            login = work["login"]
+            while True:
+                # get a suitable token and combine header
+                github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
+                # print github_token
+                headers = {
+                    'Authorization': 'Bearer ' + github_token,
+                    'Content-Type': 'application/json'
+                }
+                # print "headers is: " + str(headers)
+                values = {"query": query % login, "variables": {}}
+                try:
+                    response = requests.post(url=url, headers=headers, json=values, timeout=40)
+                    if response.status_code != 200:
+                        logging.error("response.status_code: " + str(response.status_code))
+                        sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
+                        continue
+                    response_json = response.json()
+                    if "errors" in response_json:
+                        logging.error(json.dumps(response_json))
+                        sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
+                        if "type" not in response_json["errors"][0]:
+                            logging.fatal("unknown error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                            logging.info("login: " + login)
+                            continue
+                        logging.error("normal error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                        continue
+                    # 写入文件
+                    filename = base_path + "/" + login + ".json"
+                    flag = base.generate_file(filename, json.dumps(response_json))
+                    if flag is True:
+                        logging.info("create file successfully: " + filename)
+                    elif flag is False:
+                        logging.warn("file is already existed: " + filename)
+                    else:
+                        logging.warn("create file failed: " + flag + " filename: " + filename)
+                except (ConnectionError, ReadTimeout) as e:
+                    sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
+                    logging.error(e)
+                    continue
+                except Exception as e:
+                    sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
+                    logging.fatal(e)
+                    continue
                 break
             self.q.task_done()

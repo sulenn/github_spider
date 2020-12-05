@@ -506,3 +506,57 @@ query_github_user_issue_comments = """
                 }
             }
         """
+
+query_github_all_user_sponsor_listing_info = """
+            query {
+                user(login:"%s") {
+                    name
+                    email
+                    login
+                    bio
+                    company
+                    createdAt
+                    updatedAt
+                    databaseId
+                    isBountyHunter
+                    isCampusExpert
+                    isDeveloperProgramMember
+                    isEmployee
+                    isHireable
+                    isSiteAdmin
+                    location
+                    projectsResourcePath
+                    projectsUrl
+                    url
+                    websiteUrl
+                    resourcePath
+                    twitterUsername
+                    sponsorshipsAsMaintainer(includePrivate: true) {
+                        totalCount
+                    }
+                    sponsorshipsAsSponsor {
+                        totalCount
+                    }
+                    sponsorsListing {
+                        createdAt
+                        fullDescription
+                        name
+                        shortDescription
+                        slug
+                        tiers(first:100) {
+                            edges {
+                                node {
+                                    createdAt
+                                    description
+                                    monthlyPriceInCents
+                                    monthlyPriceInDollars
+                                    name
+                                    updatedAt
+                                }
+                            }
+                            totalCount
+                        }
+                    }
+                }      
+            }
+        """
