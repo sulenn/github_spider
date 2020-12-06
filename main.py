@@ -217,17 +217,18 @@ if __name__ == "__main__":
     # #                              sql_for_user_commit_comment)
     # Database.writeUserCommitComment(paths.github_user_commit_comments, sql_for_user_commit_comment)
 
-    # # handle github user issue comment
-    # sql_for_user_issue_comment = "select login \
-    #                                     from github_user \
-    #                                     WHERE spon_maintainer_count>0 and login NOT IN (SELECT DISTINCT login from github_issue_comment)"
-    # GraphQL.crawlUserIssueComment(paths.github_user_issue_comments, queries.query_github_user_issue_comments,
-    #                              sql_for_user_issue_comment)
+    # handle github user issue comment
+    sql_for_user_issue_comment = "select login \
+                                        from github_user \
+                                        WHERE spon_maintainer_count>0 and login NOT IN (SELECT DISTINCT login from github_issue_comment)"
+    GraphQL.crawlUserIssueComment(paths.github_user_issue_comments, queries.query_github_user_issue_comments,
+                                 sql_for_user_issue_comment)
     # Database.writeUserIssueComment(paths.github_user_issue_comments, sql_for_user_issue_comment)
 
-    # crawl all user sponsor listing data
-    sql_for_user_sponsor_listing = "SELECT login \
-                                    FROM github_user"
-    GraphQL.crawlAllUserSponsorListing(paths.github_all_user_sponsor_listing_info, queries.query_github_all_user_sponsor_listing_info,
-                                  sql_for_user_sponsor_listing)
-    # Database.writeUserIssueComment(paths.github_user_issue_comments, sql_for_user_issue_comment)
+    # # crawl all user sponsor listing data
+    # sql_for_user_sponsor_listing = "SELECT login \
+    #                                 FROM github_user \
+    #                                 WHERE flag=0"
+    # GraphQL.crawlAllUserSponsorListing(paths.github_all_user_sponsor_listing_info, queries.query_github_all_user_sponsor_listing_info,
+    #                               sql_for_user_sponsor_listing)
+    # # Database.writeUserIssueComment(paths.github_user_issue_comments, sql_for_user_issue_comment)

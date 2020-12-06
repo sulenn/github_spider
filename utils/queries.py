@@ -475,13 +475,15 @@ query_github_user_issue_comments = """
                 user(login:"%s") {
                     login
                     databaseId
-                    issueComments(first:100%s) {
+                    issueComments(%s) {
                         totalCount
                         pageInfo {
                             endCursor
+                            hasPreviousPage
                             hasNextPage
                         }
                         edges {
+                            cursor
                             node {
                                 author {
                                     login
@@ -507,6 +509,23 @@ query_github_user_issue_comments = """
             }
         """
 
+query_github_user_issue_comments_empty = """
+            query {
+                user(login:"%s") {
+                    login
+                    databaseId
+                    issueComments(%s) {
+                        totalCount
+                        pageInfo {
+                            endCursor
+                            hasPreviousPage
+                            hasNextPage
+                        }
+                    }
+                }
+            }
+        """
+
 query_github_all_user_sponsor_listing_info = """
             query {
                 user(login:"%s") {
@@ -518,6 +537,7 @@ query_github_all_user_sponsor_listing_info = """
                     createdAt
                     updatedAt
                     databaseId
+                    hasSponsorsListing
                     isBountyHunter
                     isCampusExpert
                     isDeveloperProgramMember

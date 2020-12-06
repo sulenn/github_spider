@@ -72,7 +72,6 @@ def get_token(github_tokens, sleep_time_tokens, sleep_gap_token):
         for token in github_tokens:
             cur_time = time.time()
             if cur_time - sleep_time_tokens[token] > sleep_gap_token:
-                sleep_time_tokens[token] = cur_time
                 return token
         time.sleep(50)
 
@@ -94,6 +93,10 @@ def read_all_filename_in_directory(path):
         for file_name in file_list:
             files_path.append(os.path.join(path, file_name))
     return files_path
+
+# read all file name
+def read_all_filename_none_path(path):
+    return os.listdir(path)
 
 # return unix time
 def time_string_to_timestamp(t):
@@ -188,4 +191,6 @@ if __name__ == "__main__":
     # for path, dir_list, file_list in g:
     #     for file_name in file_list:
     #         print(os.path.join(path, file_name))
-    print read_all_filename_in_directory("/home/qiubing/github/sponsor/user/issue")
+    # print read_all_filename_none_path("/home/qiubing/github/sponsor/all/user/sponsorlisting")
+    temp = os.listdir("/home/qiubing/github/sponsor/user/issue-comments")
+    logging.info(temp)

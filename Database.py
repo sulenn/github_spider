@@ -444,6 +444,22 @@ def updateGithubSponsorshipsAsSponsor(login, flag):
     cur.close()
     db.close()
 
+def updateGithubUserFlag(login, flag):
+    # create database connection
+    db = base.connectMysqlDB(config)
+    cur = db.cursor()
+
+    # read all the repos
+    cur.execute("update github_user "
+                "set flag= " + flag + " "
+                "where login='" + login + "'")
+    items = cur.fetchall()
+    logging.info("update successfully! login: " + login + ", flag: " + str(flag))
+
+    # close this database connection
+    cur.close()
+    db.close()
+
 def updateGithubSponsorshipsAsMaintainer(login, flag):
     # create database connection
     db = base.connectMysqlDB(config)

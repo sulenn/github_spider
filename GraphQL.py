@@ -9,6 +9,7 @@ from utils import base
 import requests
 import Database
 import time
+from utils import queries
 import logging
 from requests.exceptions import ConnectionError, ReadTimeout
 
@@ -1003,30 +1004,149 @@ def crawlUserIssueComment(p, q, sql):
     cur = db.cursor()
 
     # read all the repos
-    unhandled_tasks = []
+    unhandled_logins = []
     cur.execute(sql)
     items = cur.fetchall()
     for item in items:
-        unhandled_tasks.append({"login": item[0]})
+        unhandled_logins.append(item[0])
     logging.info("finish reading database")
-    logging.info("%d tasks left for handling" % (len(unhandled_tasks)))
 
-    # close this database connection
-    cur.close()
-    db.close()
+    # read handled task from directory
+    handled_logins = base.read_all_filename_none_path(base_path)
 
-    if len(unhandled_tasks) == 0:
-        logging.warn("finish")
-        return
-
-    for task in unhandled_tasks:
-        workQueue.put_nowait(task)
-
+    # judge handled logins is whether was handled
+    for login in handled_logins:
+        workQueue.put_nowait({"login": login})
     for _ in range(THREAD_NUM):
-        crawlUserIssueCommentThread(workQueue).start()
+        judgeUserIssueCommentHandledThread(workQueue).start()
     workQueue.join()
 
+    # # unhandled logins
+    # unhandled_logins = list(set(unhandled_logins) - set(handled_logins))
+    #
+    # # unhandled tasks
+    # unhandled_tasks = []
+    # for login in unhandled_logins:
+    #     unhandled_tasks.append({"login": login})
+    #
+    # logging.info("%d tasks left for handling" % (len(unhandled_tasks)))
+    #
+    # # close this database connection
+    # cur.close()
+    # db.close()
+    #
+    # if len(unhandled_tasks) == 0:
+    #     logging.warn("finish")
+    #     return
+    #
+    # for task in unhandled_tasks:
+    #     workQueue.put_nowait(task)
+    #
+    # for _ in range(THREAD_NUM):
+    #     crawlUserIssueCommentThread(workQueue).start()
+    # workQueue.join()
+
     logging.info("finish")
+
+class judgeUserIssueCommentHandledThread(threading.Thread):
+    def __init__(self, q):
+        threading.Thread.__init__(self)
+        self.q = q
+    def run(self):
+        while not self.q.empty():
+            work = self.q.get(timeout=0)
+            logging.info("the number of work in queue: " + str(self.q.qsize()))
+
+            login = work["login"]
+
+            # get the max index in handled login directory
+            directory_path = base_path + "/" + login
+            filenames = base.read_all_filename_none_path(directory_path)
+            indexes = []
+            for filename in filenames:
+                indexes.append(int(filename[:len(filename) - 5]))
+            count = int(max(indexes))
+            num_per_query = 100
+
+            # judge task is whether was handled
+            file_path = directory_path + "/" + str(count) + ".json"
+            text = base.get_info_from_file(file_path)
+            if text is False:
+                logging.fatal("file not existed: " + file_path)
+            else:
+                obj = json.loads(text)
+                logging.info("read file: " + file_path)
+                if "hasNextPage" in obj["data"]["user"]["issueComments"]["pageInfo"]:
+                    hasNextPage = obj["data"]["user"]["issueComments"]["pageInfo"]["hasNextPage"]
+                    if hasNextPage is True:
+                        cursor = obj["data"]["user"]["issueComments"]["pageInfo"]["endCursor"]
+                        count += 1
+                        while True:
+                            # get a suitable token and combine header
+                            github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
+                            # print github_token
+                            headers = {
+                                'Authorization': 'Bearer ' + github_token,
+                                'Content-Type': 'application/json'
+                            }
+                            # print "headers is: " + str(headers)
+                            condition = "first:" + str(num_per_query) + ", after:" + "\"" \
+                                        + cursor + "\""
+                            values = {"query": query % (login, condition), "variables": {}}
+                            try:
+                                response = requests.post(url=url, headers=headers, json=values)
+                                if response.status_code != 200:
+                                    logging.error("response.status_code: " + str(response.status_code))
+                                    continue
+                                response_json = response.json()
+                                if "errors" in response_json:
+                                    logging.error(json.dumps(response_json))
+                                    if "Something went wrong while executing your query" in response_json["errors"][0]["message"]:
+                                        logging.info("login: " + login + ", count: " + str(count))
+                                        if num_per_query > 1:
+                                            num_per_query /= 2
+                                            logging.warn(
+                                                "num of per query minus half, after minus half, num_per_query: " + str(
+                                                    num_per_query))
+                                        else:    # when data doesn't existed, replace query sentence
+                                            global query
+                                            query = queries.query_github_user_issue_comments_empty
+                                            logging.warn("replace query sentence to handle losed data")
+                                        continue
+                                    if "type" not in response_json["errors"][0]:
+                                        logging.fatal("unknown error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                                        logging.info("login: " + login + ", count: " + str(count))
+                                        continue
+                                    logging.error("normal error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                                    continue
+                                # handle the situation, when data doesn't existed, recover num_per_query and query
+                                if "edges" not in response_json["data"]["user"]["issueComments"]:
+                                    num_per_query = 100
+                                    global query
+                                    query = queries.query_github_user_issue_comments
+                                    logging.warn("losed data is successful handled!!!!")
+                                # 写入文件
+                                filename = base_path + "/" + login + "/" + str(count) + ".json"
+                                flag = base.generate_file(filename, json.dumps(response_json))
+                                if flag is True:
+                                    logging.info("create file successfully: " + filename)
+                                elif flag is False:
+                                    logging.warn("file is already existed: " + filename)
+                                else:
+                                    logging.warn("create file failed: " + flag + " filename: " + filename)
+                                if response_json["data"]["user"]["issueComments"]["pageInfo"]["hasNextPage"] is True:
+                                    cursor = response_json["data"]["user"]["issueComments"]["pageInfo"]["endCursor"]
+                                    count += 1
+                                    continue
+                            except (ConnectionError, ReadTimeout) as e:
+                                logging.error(e)
+                                continue
+                            except Exception as e:
+                                logging.fatal(e)
+                                continue
+                                # return
+                            break
+            self.q.task_done()
 
 class crawlUserIssueCommentThread(threading.Thread):
     def __init__(self, q):
@@ -1100,12 +1220,25 @@ def crawlAllUserSponsorListing(p, q, sql):
     cur = db.cursor()
 
     # read all the repos
-    unhandled_tasks = []
+    unhandled_logins = []
     cur.execute(sql)
     items = cur.fetchall()
     for item in items:
-        unhandled_tasks.append({"login": item[0]})
+        unhandled_logins.append(item[0])
     logging.info("finish reading database")
+
+    # read handled task from directory
+    filenames = base.read_all_filename_none_path(base_path)
+    handled_logins = []
+    for filename in filenames:
+        handled_logins.append(filename[:len(filename)-5])
+    unhandled_logins = list(set(unhandled_logins)-set(handled_logins))
+
+    # unhandled tasks
+    unhandled_tasks = []
+    for login in unhandled_logins:
+        unhandled_tasks.append({"login": login})
+
     logging.info("%d tasks left for handling" % (len(unhandled_tasks)))
 
     # close this database connection
@@ -1159,6 +1292,9 @@ class crawlAllUserSponsorListingThread(threading.Thread):
                             logging.fatal("unknown error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
                             logging.info("login: " + login)
                             continue
+                        if response_json["errors"][0]["type"] == "NOT_FOUND":
+                            Database.updateGithubUserFlag(login, str(base.flag1))
+                            break
                         logging.error("normal error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
                         continue
                     # 写入文件
