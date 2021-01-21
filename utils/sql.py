@@ -42,6 +42,12 @@ user_issue_comment_sql = """
                 WHERE login='%s' AND created_at>='%s' AND created_at<='%s'
                 """
 
+user_pr_comment_sql = """
+                SELECT count(*)
+                FROM github_pr_comment
+                WHERE login='%s' AND created_at>='%s' AND created_at<='%s'
+                """
+
 all_user_earliest_maintainer_time = """
                 SELECT login, min(created_at) AS created_at
                 FROM github_sponsorships_as_maintainer
@@ -86,3 +92,5 @@ get_all_spon_maintainer_count = """
                 WHERE spon_maintainer_count>0
                 ORDER BY spon_maintainer_count DESC
                 """
+
+sql_for_user_sponsor_listing = "select login from github_sponsor_listing"

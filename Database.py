@@ -154,14 +154,22 @@ class writeGithubSponsorListingThread(threading.Thread):
                     logging.warn("file not existed: " + file)
                 else:
                     obj = json.loads(text)
-                    cur.execute("insert into github_sponsor_listing "
-                                "(login, slug, name, tiers_total_count, created_at, short_description) "
-                                "values (%s, %s, %s, %s, %s, %s)",
-                                (obj["data"]["user"]["login"], obj["data"]["user"]["sponsorsListing"]["slug"], obj["data"]["user"]["sponsorsListing"]["name"],
-                                 obj["data"]["user"]["sponsorsListing"]["tiers"]["totalCount"], base.time_handler(obj["data"]["user"]["sponsorsListing"]["createdAt"]),
-                                 obj["data"]["user"]["sponsorsListing"]["shortDescription"]))
-                    db.commit()
-                    logging.info(login + " ~~~~~~~~~ data commit into dababase success!!")
+                    if obj["data"]["user"]["sponsorsListing"] is None:
+                        logging.info("user: " + login + " don't create sponsors")
+                    else:
+                        cur.execute("SELECT * FROM github_sponsor_listing WHERE login='" + login + "'")
+                        items = cur.fetchall()
+                        if len(items) == 1:
+                            logging.info("user: " + login + " had been inserted into database!")
+                        else:
+                            cur.execute("insert into github_sponsor_listing "
+                                        "(login, slug, name, tiers_total_count, created_at, short_description) "
+                                        "values (%s, %s, %s, %s, %s, %s)",
+                                        (obj["data"]["user"]["login"], obj["data"]["user"]["sponsorsListing"]["slug"], obj["data"]["user"]["sponsorsListing"]["name"],
+                                         obj["data"]["user"]["sponsorsListing"]["tiers"]["totalCount"], base.time_handler(obj["data"]["user"]["sponsorsListing"]["createdAt"]),
+                                         obj["data"]["user"]["sponsorsListing"]["shortDescription"]))
+                            db.commit()
+                            logging.info(login + " ~~~~~~~~~ data commit into dababase success!!")
                 self.q.task_done()
                 cur.close()
                 db.close()
@@ -227,18 +235,22 @@ class writeGithubSponsorListingTiersThread(threading.Thread):
                     logging.warn("file not existed: " + file)
                 else:
                     obj = json.loads(text)
-                    logging.info(login + " ~~~~~~~~~ has " + str(obj["data"]["user"]["sponsorsListing"]["tiers"]["totalCount"]) + " tiers")
-                    count = 1
-                    for edge in obj["data"]["user"]["sponsorsListing"]["tiers"]["edges"]:
-                        cur.execute("insert into github_sponsor_listing_tiers "
-                                    "(login, slug, monthly_price_in_cents, monthly_price_in_dollars, name, created_at, updated_at, description) "
-                                    "values (%s, %s, %s, %s, %s, %s, %s, %s)",
-                                    (obj["data"]["user"]["login"], obj["data"]["user"]["sponsorsListing"]["slug"], edge["node"]["monthlyPriceInCents"],
-                                     edge["node"]["monthlyPriceInDollars"], edge["node"]["name"], base.time_handler(edge["node"]["createdAt"]),
-                                     base.time_handler(edge["node"]["updatedAt"]), edge["node"]["description"]))
-                        db.commit()
-                        logging.info("the " + str(count) + "th tier data commit into dababase success!!")
-                        count += 1
+                    if obj["data"]["user"]["sponsorsListing"] is not None:
+                        logging.info(login + " ~~~~~~~~~ has " + str(obj["data"]["user"]["sponsorsListing"]["tiers"]["totalCount"]) + " tiers")
+                        count = 1
+                        for edge in obj["data"]["user"]["sponsorsListing"]["tiers"]["edges"]:
+                            cur.execute("insert into github_sponsor_listing_tiers "
+                                        "(login, slug, monthly_price_in_cents, monthly_price_in_dollars, name, created_at, updated_at, description) "
+                                        "values (%s, %s, %s, %s, %s, %s, %s, %s)",
+                                        (obj["data"]["user"]["login"], obj["data"]["user"]["sponsorsListing"]["slug"], edge["node"]["monthlyPriceInCents"],
+                                         edge["node"]["monthlyPriceInDollars"], edge["node"]["name"], base.time_handler(edge["node"]["createdAt"]),
+                                         base.time_handler(edge["node"]["updatedAt"]), edge["node"]["description"]))
+                            db.commit()
+                            logging.info("the " + str(count) + "th tier data commit into dababase success!!")
+                            count += 1
+                    else:
+                        logging.warn("login: " + login + " don't have sponsor_listing")
+                        logging.warn("sponsor_listing: " + str(obj))
                 self.q.task_done()
                 cur.close()
                 db.close()
@@ -932,6 +944,8 @@ class writeUserCommitCommentThread(threading.Thread):
                         obj = json.loads(text)
                         logging.info("read file: " + file)
                         count = 1
+                        if "edges" not in obj["data"]["user"]["commitComments"]:
+                            continue
                         for node in obj["data"]["user"]["commitComments"]["edges"]:
                             logging.info("the " + str(count) + "th record in file: " + file)
                             if node["node"]["commit"] is not None:
@@ -1014,25 +1028,46 @@ class writeUserIssueCommentThread(threading.Thread):
                         obj = json.loads(text)
                         logging.info("read file: " + file)
                         count = 1
+                        if "edges" not in obj["data"]["user"]["issueComments"]:
+                            continue
                         for node in obj["data"]["user"]["issueComments"]["edges"]:
                             try:
-                                cur.execute("insert into github_issue_comment "
-                                            "(comm_database_id, login, created_at, updated_at, issue_login, issue_database_id) "
-                                            "values (%s, %s, %s, %s, %s, %s)",
-                                            (node["node"]["databaseId"], obj["data"]["user"]["login"], base.time_handler(node["node"]["createdAt"]),
-                                             base.time_handler(node["node"]["updatedAt"]), node["node"]["issue"]["author"]["login"],
-                                             node["node"]["issue"]["databaseId"]))
+                                if node["node"]["pullRequest"] is None:
+                                    cur.execute("insert into github_issue_comment "
+                                                "(comm_database_id, login, created_at, updated_at, issue_login, issue_database_id) "
+                                                "values (%s, %s, %s, %s, %s, %s)",
+                                                (node["node"]["databaseId"], obj["data"]["user"]["login"], base.time_handler(node["node"]["createdAt"]),
+                                                 base.time_handler(node["node"]["updatedAt"]), node["node"]["issue"]["author"]["login"],
+                                                 node["node"]["issue"]["databaseId"]))
+                                else:
+                                    cur.execute("insert into github_pr_comment "
+                                                "(comm_database_id, login, created_at, updated_at, issue_login, issue_database_id) "
+                                                "values (%s, %s, %s, %s, %s, %s)",
+                                                (node["node"]["databaseId"], obj["data"]["user"]["login"],
+                                                 base.time_handler(node["node"]["createdAt"]),
+                                                 base.time_handler(node["node"]["updatedAt"]),
+                                                 node["node"]["issue"]["author"]["login"],
+                                                 node["node"]["issue"]["databaseId"]))
                                 db.commit()
                             except Exception as e:
                                 logging.error(e)
                                 logging.error("insert failed!! the " + str(count) + "th record in file: " + file)
-                                cur.execute("insert into github_issue_comment "
-                                            "(comm_database_id, login, created_at, updated_at, issue_database_id) "
-                                            "values (%s, %s, %s, %s, %s)",
-                                            (node["node"]["databaseId"], obj["data"]["user"]["login"],
-                                             base.time_handler(node["node"]["createdAt"]),
-                                             base.time_handler(node["node"]["updatedAt"]),
-                                             node["node"]["issue"]["databaseId"]))
+                                if node["node"]["pullRequest"] is None:
+                                    cur.execute("insert into github_issue_comment "
+                                                "(comm_database_id, login, created_at, updated_at, issue_database_id) "
+                                                "values (%s, %s, %s, %s, %s)",
+                                                (node["node"]["databaseId"], obj["data"]["user"]["login"],
+                                                 base.time_handler(node["node"]["createdAt"]),
+                                                 base.time_handler(node["node"]["updatedAt"]),
+                                                 node["node"]["issue"]["databaseId"]))
+                                else:
+                                    cur.execute("insert into github_pr_comment "
+                                                "(comm_database_id, login, created_at, updated_at, issue_database_id) "
+                                                "values (%s, %s, %s, %s, %s)",
+                                                (node["node"]["databaseId"], obj["data"]["user"]["login"],
+                                                 base.time_handler(node["node"]["createdAt"]),
+                                                 base.time_handler(node["node"]["updatedAt"]),
+                                                 node["node"]["issue"]["databaseId"]))
                                 db.commit()
                             logging.info("the " + str(count) + "th record in file: " + file)
                             count += 1

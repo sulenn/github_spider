@@ -22,4 +22,6 @@ github_user_commit_comments = "/home/qiubing/github/sponsor/user/commit-comments
 
 github_user_issue_comments = "/home/qiubing/github/sponsor/user/issue-comments"
 
+# github_user_issue_comments_backup = "/home/qiubing/github/sponsor/user/issue-comments-backup"
+
 github_all_user_sponsor_listing_info = "/home/qiubing/github/sponsor/all/user/sponsorlisting"

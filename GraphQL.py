@@ -17,7 +17,7 @@ from requests.exceptions import ConnectionError, ReadTimeout
 # db config file
 f = open('config.yaml', 'r')
 config = yaml.load(f.read(), Loader=yaml.BaseLoader)
-THREAD_NUM = 25
+THREAD_NUM = 30
 base_path = ""
 query = ""
 start_time = ""
@@ -110,7 +110,7 @@ class crawlCommonThread(threading.Thread):
                     logging.error(e)
                 except Exception as e:
                     logging.fatal(e)
-                    return
+                    continue
 
 # crawl github user data
 def crawlUser(p, q, sql):
@@ -476,6 +476,12 @@ def crawlUserCommits(p, q, sql, time1, time2):
     cur.execute(sql)
     items = cur.fetchall()
     for item in items:
+        login = item[0]
+        # judge the file is existed
+        filename = base_path + "/" + login + "/" + start_time + "_" + end_time + ".json"
+        if base.judge_file_exist(filename):
+            continue
+        # unhandled tasks
         unhandled_tasks.append({"login": item[0]})
     logging.info("finish reading database")
     logging.info("%d tasks left for handling" % (len(unhandled_tasks)))
@@ -518,10 +524,26 @@ class crawlUserCommitsThread(threading.Thread):
                 # print "headers is: " + str(headers)
                 values = {"query": query % (login, start_time, end_time), "variables": {}}
                 try:
-                    response = requests.post(url=url, headers=headers, json=values)
-                    if base.judge_http_response(response) is False:
+                    response = requests.post(url=url, headers=headers, json=values, timeout=40)
+                    if response.status_code == 403:
+                        logging.error("response.status_code: " + str(response.status_code))
+                        sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
+                        continue
+                    if response.status_code != 200:
+                        logging.error("response.status_code: " + str(response.status_code))
                         continue
                     response_json = response.json()
+                    if "errors" in response_json:
+                        logging.error(json.dumps(response_json))
+                        if "type" not in response_json["errors"][0]:
+                            logging.fatal("unknown error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                            logging.info("login: " + login)
+                            continue
+                        if response_json["errors"][0]["type"] == "RATE_LIMITED":
+                            sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
+                            logging.info("RATE_LIMITED!!!!!!!!!!!!!!!!!!!!!")
+                        logging.error("normal error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                        continue
                     # 写入文件
                     filename = base_path + "/" + login + "/" + start_time + "_" + end_time + ".json"
                     flag = base.generate_file(filename, json.dumps(response_json))
@@ -536,7 +558,7 @@ class crawlUserCommitsThread(threading.Thread):
                     continue
                 except Exception as e:
                     logging.fatal(e)
-                    return
+                    continue
                 self.q.task_done()
                 break
 
@@ -561,6 +583,12 @@ def crawlUserIssues(p, q, sql, time1, time2):
     cur.execute(sql)
     items = cur.fetchall()
     for item in items:
+        login = item[0]
+        # judge the file is existed
+        filename = base_path + "/" + login + "/" + start_time + "_" + end_time
+        if base.judge_file_exist(filename):
+            continue
+        # unhandled tasks
         unhandled_tasks.append({"login": item[0]})
     logging.info("finish reading database")
     logging.info("%d tasks left for handling" % (len(unhandled_tasks)))
@@ -606,9 +634,25 @@ class crawlUserIssuesThread(threading.Thread):
                 values = {"query": query % (login, start_time, end_time, after_cursor), "variables": {}}
                 try:
                     response = requests.post(url=url, headers=headers, json=values)
-                    if base.judge_http_response(response) is False:
+                    if response.status_code == 403:
+                        logging.error("response.status_code: " + str(response.status_code))
+                        sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
+                        continue
+                    if response.status_code != 200:
+                        logging.error("response.status_code: " + str(response.status_code))
                         continue
                     response_json = response.json()
+                    if "errors" in response_json:
+                        logging.error(json.dumps(response_json))
+                        if "type" not in response_json["errors"][0]:
+                            logging.fatal("unknown error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                            logging.info("login: " + login)
+                            continue
+                        if response_json["errors"][0]["type"] == "RATE_LIMITED":
+                            sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
+                            logging.info("RATE_LIMITED!!!!!!!!!!!!!!!!!!!!!")
+                        logging.error("normal error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                        continue
                     # 写入文件
                     filename = base_path + "/" + login + "/" + start_time + "_" + end_time + "/" + str(count) + ".json"
                     flag = base.generate_file(filename, json.dumps(response_json))
@@ -627,7 +671,7 @@ class crawlUserIssuesThread(threading.Thread):
                     continue
                 except Exception as e:
                     logging.fatal(e)
-                    return
+                    continue
                 break
             self.q.task_done()
 
@@ -652,6 +696,12 @@ def crawlUserPullRequests(p, q, sql, time1, time2):
     cur.execute(sql)
     items = cur.fetchall()
     for item in items:
+        login = item[0]
+        # judge the file is existed
+        filename = base_path + "/" + login + "/" + start_time + "_" + end_time
+        if base.judge_file_exist(filename):
+            continue
+        # unhandled tasks
         unhandled_tasks.append({"login": item[0]})
     logging.info("finish reading database")
     logging.info("%d tasks left for handling" % (len(unhandled_tasks)))
@@ -697,9 +747,25 @@ class crawlUserPullRequestsThread(threading.Thread):
                 values = {"query": query % (login, start_time, end_time, after_cursor), "variables": {}}
                 try:
                     response = requests.post(url=url, headers=headers, json=values)
-                    if base.judge_http_response(response) is False:
+                    if response.status_code == 403:
+                        logging.error("response.status_code: " + str(response.status_code))
+                        sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
+                        continue
+                    if response.status_code != 200:
+                        logging.error("response.status_code: " + str(response.status_code))
                         continue
                     response_json = response.json()
+                    if "errors" in response_json:
+                        logging.error(json.dumps(response_json))
+                        if "type" not in response_json["errors"][0]:
+                            logging.fatal("unknown error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                            logging.info("login: " + login)
+                            continue
+                        if response_json["errors"][0]["type"] == "RATE_LIMITED":
+                            sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
+                            logging.info("RATE_LIMITED!!!!!!!!!!!!!!!!!!!!!")
+                        logging.error("normal error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                        continue
                     # 写入文件
                     filename = base_path + "/" + login + "/" + start_time + "_" + end_time + "/" + str(count) + ".json"
                     flag = base.generate_file(filename, json.dumps(response_json))
@@ -718,7 +784,7 @@ class crawlUserPullRequestsThread(threading.Thread):
                     continue
                 except Exception as e:
                     logging.fatal(e)
-                    return
+                    continue
                 break
             self.q.task_done()
 
@@ -743,6 +809,12 @@ def crawlUserPullRequestReview(p, q, sql, time1, time2):
     cur.execute(sql)
     items = cur.fetchall()
     for item in items:
+        login = item[0]
+        # judge the file is existed
+        filename = base_path + "/" + login + "/" + start_time + "_" + end_time
+        if base.judge_file_exist(filename):
+            continue
+        # unhandled tasks
         unhandled_tasks.append({"login": item[0]})
     logging.info("finish reading database")
     logging.info("%d tasks left for handling" % (len(unhandled_tasks)))
@@ -788,9 +860,25 @@ class crawlUserPullRequestReviewThread(threading.Thread):
                 values = {"query": query % (login, start_time, end_time, after_cursor), "variables": {}}
                 try:
                     response = requests.post(url=url, headers=headers, json=values)
-                    if base.judge_http_response(response) is False:
+                    if response.status_code == 403:
+                        logging.error("response.status_code: " + str(response.status_code))
+                        sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
+                        continue
+                    if response.status_code != 200:
+                        logging.error("response.status_code: " + str(response.status_code))
                         continue
                     response_json = response.json()
+                    if "errors" in response_json:
+                        logging.error(json.dumps(response_json))
+                        if "type" not in response_json["errors"][0]:
+                            logging.fatal("unknown error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                            logging.info("login: " + login)
+                            continue
+                        if response_json["errors"][0]["type"] == "RATE_LIMITED":
+                            sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
+                            logging.info("RATE_LIMITED!!!!!!!!!!!!!!!!!!!!!")
+                        logging.error("normal error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                        continue
                     # 写入文件
                     filename = base_path + "/" + login + "/" + start_time + "_" + end_time + "/" + str(count) + ".json"
                     flag = base.generate_file(filename, json.dumps(response_json))
@@ -809,7 +897,7 @@ class crawlUserPullRequestReviewThread(threading.Thread):
                     continue
                 except Exception as e:
                     logging.fatal(e)
-                    return
+                    continue
                 break
             self.q.task_done()
 
@@ -834,6 +922,12 @@ def crawlUserRepository(p, q, sql, time1, time2):
     cur.execute(sql)
     items = cur.fetchall()
     for item in items:
+        login = item[0]
+        # judge the file is existed
+        filename = base_path + "/" + login + "/" + start_time + "_" + end_time
+        if base.judge_file_exist(filename):
+            continue
+        # unhandled tasks
         unhandled_tasks.append({"login": item[0]})
     logging.info("finish reading database")
     logging.info("%d tasks left for handling" % (len(unhandled_tasks)))
@@ -879,9 +973,25 @@ class crawlUserRepositoryThread(threading.Thread):
                 values = {"query": query % (login, start_time, end_time, after_cursor), "variables": {}}
                 try:
                     response = requests.post(url=url, headers=headers, json=values)
-                    if base.judge_http_response(response) is False:
+                    if response.status_code == 403:
+                        logging.error("response.status_code: " + str(response.status_code))
+                        sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
+                        continue
+                    if response.status_code != 200:
+                        logging.error("response.status_code: " + str(response.status_code))
                         continue
                     response_json = response.json()
+                    if "errors" in response_json:
+                        logging.error(json.dumps(response_json))
+                        if "type" not in response_json["errors"][0]:
+                            logging.fatal("unknown error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                            logging.info("login: " + login)
+                            continue
+                        if response_json["errors"][0]["type"] == "RATE_LIMITED":
+                            sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
+                            logging.info("RATE_LIMITED!!!!!!!!!!!!!!!!!!!!!")
+                        logging.error("normal error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                        continue
                     # 写入文件
                     filename = base_path + "/" + login + "/" + start_time + "_" + end_time + "/" + str(count) + ".json"
                     flag = base.generate_file(filename, json.dumps(response_json))
@@ -900,7 +1010,7 @@ class crawlUserRepositoryThread(threading.Thread):
                     continue
                 except Exception as e:
                     logging.fatal(e)
-                    return
+                    continue
                 break
             self.q.task_done()
 
@@ -917,12 +1027,30 @@ def crawlUserCommitComment(p, q, sql):
     cur = db.cursor()
 
     # read all the repos
-    unhandled_tasks = []
+    unhandled_logins = []
     cur.execute(sql)
     items = cur.fetchall()
     for item in items:
-        unhandled_tasks.append({"login": item[0]})
+        unhandled_logins.append(item[0])
     logging.info("finish reading database")
+
+    # read handled task from directory
+    handled_logins = base.read_all_filename_none_path(base_path)
+
+    # judge handled logins is whether was handled, if true, handle unhandled task
+    for login in handled_logins:
+        workQueue.put_nowait({"login": login})
+    for _ in range(THREAD_NUM):
+        judgeUserCommitCommentHandledThread(workQueue).start()
+    workQueue.join()
+
+    # unhandled logins
+    unhandled_logins = list(set(unhandled_logins) - set(handled_logins))
+
+    # unhandled tasks
+    unhandled_tasks = []
+    for login in unhandled_logins:
+        unhandled_tasks.append({"login": login})
     logging.info("%d tasks left for handling" % (len(unhandled_tasks)))
 
     # close this database connection
@@ -942,6 +1070,114 @@ def crawlUserCommitComment(p, q, sql):
 
     logging.info("finish")
 
+class judgeUserCommitCommentHandledThread(threading.Thread):
+    def __init__(self, q):
+        threading.Thread.__init__(self)
+        self.q = q
+    def run(self):
+        while not self.q.empty():
+            work = self.q.get(timeout=0)
+            logging.info("the number of work in queue: " + str(self.q.qsize()))
+
+            login = work["login"]
+
+            # get the max index in handled login directory
+            directory_path = base_path + "/" + login
+            filenames = base.read_all_filename_none_path(directory_path)
+            indexes = []
+            for filename in filenames:
+                indexes.append(int(filename[:len(filename) - 5]))
+            count = int(max(indexes))
+            num_per_query = 100
+
+            # judge task is whether was handled
+            file_path = directory_path + "/" + str(count) + ".json"
+            text = base.get_info_from_file(file_path)
+            if text is False:
+                logging.fatal("file not existed: " + file_path)
+            else:
+                obj = json.loads(text)
+                logging.info("read file: " + file_path)
+                if "hasNextPage" in obj["data"]["user"]["commitComments"]["pageInfo"]:
+                    hasNextPage = obj["data"]["user"]["commitComments"]["pageInfo"]["hasNextPage"]
+                    if hasNextPage is True:
+                        cursor = obj["data"]["user"]["commitComments"]["pageInfo"]["endCursor"]
+                        count += 1
+                        while True:
+                            # get a suitable token and combine header
+                            github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
+                            # print github_token
+                            headers = {
+                                'Authorization': 'Bearer ' + github_token,
+                                'Content-Type': 'application/json'
+                            }
+                            # print "headers is: " + str(headers)
+                            condition = "first:" + str(num_per_query) + ", after:" + "\"" \
+                                        + cursor + "\""
+                            values = {"query": query % (login, condition), "variables": {}}
+                            try:
+                                response = requests.post(url=url, headers=headers, json=values, timeout=40)
+                                if response.status_code == 403:
+                                    logging.error("response.status_code: " + str(response.status_code))
+                                    sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
+                                    continue
+                                if response.status_code != 200:
+                                    logging.error("response.status_code: " + str(response.status_code))
+                                    continue
+                                response_json = response.json()
+                                if "errors" in response_json:
+                                    logging.error(json.dumps(response_json))
+                                    if "Something went wrong while executing your query" in response_json["errors"][0]["message"]:
+                                        logging.info("login: " + login + ", count: " + str(count))
+                                        if num_per_query > 1:
+                                            num_per_query /= 2
+                                            logging.warn(
+                                                "num of per query minus half, after minus half, num_per_query: " + str(
+                                                    num_per_query))
+                                        else:    # when data doesn't existed, replace query sentence
+                                            global query
+                                            query = queries.query_github_user_commit_comments_empty
+                                            logging.warn("replace query sentence to handle losed data")
+                                        continue
+                                    if "type" not in response_json["errors"][0]:
+                                        logging.fatal("unknown error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                                        logging.info("login: " + login + ", count: " + str(count))
+                                        continue
+                                    if response_json["errors"][0]["type"] == "RATE_LIMITED":
+                                        sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
+                                    logging.error("normal error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                                    continue
+                                # handle the situation, when data doesn't existed, recover num_per_query and query
+                                if "edges" not in response_json["data"]["user"]["commitComments"]:
+                                    num_per_query = 100
+                                    global query
+                                    query = queries.query_github_user_commit_comments
+                                    logging.warn("losed data is successful handled!!!!")
+                                # 写入文件
+                                filename = base_path + "/" + login + "/" + str(count) + ".json"
+                                flag = base.generate_file(filename, json.dumps(response_json))
+                                if flag is True:
+                                    logging.info("create file successfully: " + filename)
+                                elif flag is False:
+                                    logging.warn("file is already existed: " + filename)
+                                else:
+                                    logging.warn("create file failed: " + flag + " filename: " + filename)
+                                if response_json["data"]["user"]["commitComments"]["pageInfo"]["hasNextPage"] is True:
+                                    cursor = response_json["data"]["user"]["commitComments"]["pageInfo"]["endCursor"]
+                                    count += 1
+                                    continue
+                            except (ConnectionError, ReadTimeout) as e:
+                                logging.error(e)
+                                continue
+                            except Exception as e:
+                                logging.fatal(e)
+                                continue
+                                # return
+                            break
+                    else:
+                        logging.info("data of user: " + login + " was handled!")
+            self.q.task_done()
+
 class crawlUserCommitCommentThread(threading.Thread):
     def __init__(self, q):
         threading.Thread.__init__(self)
@@ -953,7 +1189,8 @@ class crawlUserCommitCommentThread(threading.Thread):
 
             login = work["login"]
             count = 1
-            after_cursor = ""
+            cursor = ""
+            num_per_query = 100
             while True:
                 # get a suitable token and combine header
                 github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
@@ -963,12 +1200,50 @@ class crawlUserCommitCommentThread(threading.Thread):
                     'Content-Type': 'application/json'
                 }
                 # print "headers is: " + str(headers)
-                values = {"query": query % (login, after_cursor), "variables": {}}
+                if cursor == "":
+                    condition = "first:" + str(num_per_query)
+                else:
+                    condition = "first:" + str(num_per_query) + ", after:" + "\"" \
+                                + cursor + "\""
+                values = {"query": query % (login, condition), "variables": {}}
                 try:
-                    response = requests.post(url=url, headers=headers, json=values)
-                    if base.judge_http_response(response) is False:
+                    response = requests.post(url=url, headers=headers, json=values, timeout=40)
+                    if response.status_code == 403:
+                        logging.error("response.status_code: " + str(response.status_code))
+                        sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
+                        continue
+                    if response.status_code != 200:
+                        logging.error("response.status_code: " + str(response.status_code))
                         continue
                     response_json = response.json()
+                    if "errors" in response_json:
+                        logging.error(json.dumps(response_json))
+                        if "Something went wrong while executing your query" in response_json["errors"][0]["message"]:
+                            logging.info("login: " + login + ", count: " + str(count))
+                            if num_per_query > 1:
+                                num_per_query /= 2
+                                logging.warn(
+                                    "num of per query minus half, after minus half, num_per_query: " + str(
+                                        num_per_query))
+                            else:  # when data doesn't existed, replace query sentence
+                                global query
+                                query = queries.query_github_user_commit_comments_empty
+                                logging.warn("replace query sentence to handle losed data")
+                            continue
+                        if "type" not in response_json["errors"][0]:
+                            logging.fatal("unknown error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                            logging.info("login: " + login + ", count: " + str(count))
+                            continue
+                        if response_json["errors"][0]["type"] == "RATE_LIMITED":
+                            sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
+                        logging.error("normal error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                        continue
+                    # handle the situation, when data doesn't existed, recover num_per_query and query
+                    if "edges" not in response_json["data"]["user"]["commitComments"]:
+                        num_per_query = 100
+                        global query
+                        query = queries.query_github_user_commit_comments
+                        logging.warn("losed data is successful handled!!!!")
                     # 写入文件
                     filename = base_path + "/" + login + "/" + str(count) + ".json"
                     flag = base.generate_file(filename, json.dumps(response_json))
@@ -979,7 +1254,7 @@ class crawlUserCommitCommentThread(threading.Thread):
                     else:
                         logging.warn("create file failed: " + flag + " filename: " + filename)
                     if response_json["data"]["user"]["commitComments"]["pageInfo"]["hasNextPage"] is True:
-                        after_cursor = ", after:" + "\"" + response_json["data"]["user"]["commitComments"]["pageInfo"]["endCursor"] + "\""
+                        cursor = response_json["data"]["user"]["commitComments"]["pageInfo"]["endCursor"]
                         count += 1
                         continue
                 except (ConnectionError, ReadTimeout) as e:
@@ -987,7 +1262,7 @@ class crawlUserCommitCommentThread(threading.Thread):
                     continue
                 except Exception as e:
                     logging.error(e)
-                    return
+                    continue
                 break
             self.q.task_done()
 
@@ -1014,37 +1289,37 @@ def crawlUserIssueComment(p, q, sql):
     # read handled task from directory
     handled_logins = base.read_all_filename_none_path(base_path)
 
-    # judge handled logins is whether was handled
+    # judge handled logins is whether was handled, if true, handle unhandled task
     for login in handled_logins:
         workQueue.put_nowait({"login": login})
     for _ in range(THREAD_NUM):
         judgeUserIssueCommentHandledThread(workQueue).start()
     workQueue.join()
 
-    # # unhandled logins
-    # unhandled_logins = list(set(unhandled_logins) - set(handled_logins))
-    #
-    # # unhandled tasks
-    # unhandled_tasks = []
-    # for login in unhandled_logins:
-    #     unhandled_tasks.append({"login": login})
-    #
-    # logging.info("%d tasks left for handling" % (len(unhandled_tasks)))
-    #
-    # # close this database connection
-    # cur.close()
-    # db.close()
-    #
-    # if len(unhandled_tasks) == 0:
-    #     logging.warn("finish")
-    #     return
-    #
-    # for task in unhandled_tasks:
-    #     workQueue.put_nowait(task)
-    #
-    # for _ in range(THREAD_NUM):
-    #     crawlUserIssueCommentThread(workQueue).start()
-    # workQueue.join()
+    # unhandled logins
+    unhandled_logins = list(set(unhandled_logins) - set(handled_logins))
+
+    # unhandled tasks
+    unhandled_tasks = []
+    for login in unhandled_logins:
+        unhandled_tasks.append({"login": login})
+
+    logging.info("%d tasks left for handling" % (len(unhandled_tasks)))
+
+    # close this database connection
+    cur.close()
+    db.close()
+
+    if len(unhandled_tasks) == 0:
+        logging.warn("finish")
+        return
+
+    for task in unhandled_tasks:
+        workQueue.put_nowait(task)
+
+    for _ in range(THREAD_NUM):
+        crawlUserIssueCommentThread(workQueue).start()
+    workQueue.join()
 
     logging.info("finish")
 
@@ -1094,7 +1369,11 @@ class judgeUserIssueCommentHandledThread(threading.Thread):
                                         + cursor + "\""
                             values = {"query": query % (login, condition), "variables": {}}
                             try:
-                                response = requests.post(url=url, headers=headers, json=values)
+                                response = requests.post(url=url, headers=headers, json=values, timeout=40)
+                                if response.status_code == 403:
+                                    logging.error("response.status_code: " + str(response.status_code))
+                                    sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
+                                    continue
                                 if response.status_code != 200:
                                     logging.error("response.status_code: " + str(response.status_code))
                                     continue
@@ -1117,6 +1396,8 @@ class judgeUserIssueCommentHandledThread(threading.Thread):
                                         logging.fatal("unknown error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
                                         logging.info("login: " + login + ", count: " + str(count))
                                         continue
+                                    if response_json["errors"][0]["type"] == "RATE_LIMITED":
+                                        sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
                                     logging.error("normal error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
                                     continue
                                 # handle the situation, when data doesn't existed, recover num_per_query and query
@@ -1140,12 +1421,16 @@ class judgeUserIssueCommentHandledThread(threading.Thread):
                                     continue
                             except (ConnectionError, ReadTimeout) as e:
                                 logging.error(e)
+                                sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
                                 continue
                             except Exception as e:
                                 logging.fatal(e)
+                                sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
                                 continue
                                 # return
                             break
+                    else:
+                        logging.info("data of user: " + login + " was handled!")
             self.q.task_done()
 
 class crawlUserIssueCommentThread(threading.Thread):
@@ -1159,7 +1444,8 @@ class crawlUserIssueCommentThread(threading.Thread):
 
             login = work["login"]
             count = 1
-            after_cursor = ""
+            cursor = ""
+            num_per_query = 100
             while True:
                 # get a suitable token and combine header
                 github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
@@ -1169,21 +1455,50 @@ class crawlUserIssueCommentThread(threading.Thread):
                     'Content-Type': 'application/json'
                 }
                 # print "headers is: " + str(headers)
-                values = {"query": query % (login, after_cursor), "variables": {}}
+                if cursor == "":
+                    condition = "first:" + str(num_per_query)
+                else:
+                    condition = "first:" + str(num_per_query) + ", after:" + "\"" \
+                                + cursor + "\""
+                values = {"query": query % (login, condition), "variables": {}}
                 try:
-                    response = requests.post(url=url, headers=headers, json=values)
+                    response = requests.post(url=url, headers=headers, json=values, timeout=40)
+                    if response.status_code == 403:
+                        logging.error("response.status_code: " + str(response.status_code))
+                        sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
+                        continue
                     if response.status_code != 200:
                         logging.error("response.status_code: " + str(response.status_code))
                         continue
                     response_json = response.json()
                     if "errors" in response_json:
                         logging.error(json.dumps(response_json))
+                        if "Something went wrong while executing your query" in response_json["errors"][0]["message"]:
+                            logging.info("login: " + login + ", count: " + str(count))
+                            if num_per_query > 1:
+                                num_per_query /= 2
+                                logging.warn(
+                                    "num of per query minus half, after minus half, num_per_query: " + str(
+                                        num_per_query))
+                            else:  # when data doesn't existed, replace query sentence
+                                global query
+                                query = queries.query_github_user_issue_comments_empty
+                                logging.warn("replace query sentence to handle losed data")
+                            continue
                         if "type" not in response_json["errors"][0]:
                             logging.fatal("unknown error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
                             logging.info("login: " + login + ", count: " + str(count))
                             continue
-                        logging.error("nomal error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                        if response_json["errors"][0]["type"] == "RATE_LIMITED":
+                            sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
+                        logging.error("normal error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
                         continue
+                    # handle the situation, when data doesn't existed, recover num_per_query and query
+                    if "edges" not in response_json["data"]["user"]["issueComments"]:
+                        num_per_query = 100
+                        global query
+                        query = queries.query_github_user_issue_comments
+                        logging.warn("losed data is successful handled!!!!")
                     # 写入文件
                     filename = base_path + "/" + login + "/" + str(count) + ".json"
                     flag = base.generate_file(filename, json.dumps(response_json))
@@ -1194,14 +1509,16 @@ class crawlUserIssueCommentThread(threading.Thread):
                     else:
                         logging.warn("create file failed: " + flag + " filename: " + filename)
                     if response_json["data"]["user"]["issueComments"]["pageInfo"]["hasNextPage"] is True:
-                        after_cursor = ", after:" + "\"" + response_json["data"]["user"]["issueComments"]["pageInfo"]["endCursor"] + "\""
+                        cursor = response_json["data"]["user"]["issueComments"]["pageInfo"]["endCursor"]
                         count += 1
                         continue
                 except (ConnectionError, ReadTimeout) as e:
                     logging.error(e)
+                    sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
                     continue
                 except Exception as e:
                     logging.fatal(e)
+                    sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
                     continue
                     # return
                 break

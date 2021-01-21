@@ -160,9 +160,12 @@ if __name__ == "__main__":
     # Database.writeGithubSponsorshipsAsSponsor(paths.github_user_sponsorships_as_sponsor, sql_for_sponsorships_as_sponsor)
 
     # # handle github user commit info
-    # sql_for_user_commits = "select login \
-    #                         from github_user \
-    #                         WHERE spon_maintainer_count>0 and login NOT IN (SELECT DISTINCT login from github_user_commits_per_day)"
+    # # sql_for_user_commits = "select login \
+    # #                         from github_user \
+    # #                         WHERE spon_maintainer_count>0 and login NOT IN (SELECT DISTINCT login from github_user_commits_per_day)"
+    # sql_for_user_commits = "SELECT login \
+    #                             FROM github_sponsor_listing \
+    #                             WHERE login NOT IN (SELECT DISTINCT login FROM github_user_commits_per_day)"
     # for index in range(len(start_time)):
     #     GraphQL.crawlUserCommits(paths.github_user_commits, queries.query_github_user_commits,
     #                              sql_for_user_commits, start_time[index], end_time[index])
@@ -203,6 +206,9 @@ if __name__ == "__main__":
     # sql_for_user_repository = "select login \
     #                                     from github_user \
     #                                     WHERE spon_maintainer_count>0 and login NOT IN (SELECT DISTINCT login from github_repository)"
+    # # sql_for_user_repository = "SELECT login \
+    # #                                         FROM github_sponsor_listing \
+    # #                                         WHERE login NOT IN (SELECT login FROM github_user WHERE spon_maintainer_count>0)"
     # for index in range(len(start_time)):
     #     GraphQL.crawlUserRepository(paths.github_user_repositories, queries.query_github_user_repositories,
     #                              sql_for_user_repository, start_time[index], end_time[index])
@@ -212,7 +218,7 @@ if __name__ == "__main__":
     # # handle github user commit comment
     # sql_for_user_commit_comment = "select login \
     #                                     from github_user \
-    #                                     WHERE spon_maintainer_count>0 and login NOT IN (SELECT DISTINCT login from github_commit_comment)"
+    #                                     WHERE spon_maintainer_count>0"
     # # GraphQL.crawlUserCommitComment(paths.github_user_commit_comments, queries.query_github_user_commit_comments,
     # #                              sql_for_user_commit_comment)
     # Database.writeUserCommitComment(paths.github_user_commit_comments, sql_for_user_commit_comment)
@@ -220,15 +226,16 @@ if __name__ == "__main__":
     # handle github user issue comment
     sql_for_user_issue_comment = "select login \
                                         from github_user \
-                                        WHERE spon_maintainer_count>0 and login NOT IN (SELECT DISTINCT login from github_issue_comment)"
+                                        WHERE spon_maintainer_count>0 and login NOT IN (SELECT DISTINCT login from github_issue_comment) and \
+                                        login NOT IN (SELECT DISTINCT login from github_pr_comment)"
     GraphQL.crawlUserIssueComment(paths.github_user_issue_comments, queries.query_github_user_issue_comments,
                                  sql_for_user_issue_comment)
-    # Database.writeUserIssueComment(paths.github_user_issue_comments, sql_for_user_issue_comment)
+    Database.writeUserIssueComment(paths.github_user_issue_comments, sql_for_user_issue_comment)
 
     # # crawl all user sponsor listing data
     # sql_for_user_sponsor_listing = "SELECT login \
     #                                 FROM github_user \
     #                                 WHERE flag=0"
-    # GraphQL.crawlAllUserSponsorListing(paths.github_all_user_sponsor_listing_info, queries.query_github_all_user_sponsor_listing_info,
-    #                               sql_for_user_sponsor_listing)
-    # # Database.writeUserIssueComment(paths.github_user_issue_comments, sql_for_user_issue_comment)
+    # # GraphQL.crawlAllUserSponsorListing(paths.github_all_user_sponsor_listing_info, queries.query_github_all_user_sponsor_listing_info,
+    # #                               sql_for_user_sponsor_listing)
+    # Database.writeGithubSponsorListing(paths.github_all_user_sponsor_listing_info, sql_for_user_sponsor_listing)

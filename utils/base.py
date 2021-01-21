@@ -111,9 +111,9 @@ def datetime_to_timestamp(t):
     return time_stamp
 
 # input unix time
-def timestamp_to_time(timestamp):
+def timestamp_to_time(timestamp, format="%Y-%m-%d %H:%M:%S"):
     time_local = time.localtime(timestamp)
-    dt = time.strftime("%Y-%m-%d %H:%M:%S", time_local)
+    dt = time.strftime(format, time_local)
     return dt
 
 def read_database_config():

@@ -436,13 +436,15 @@ query_github_user_commit_comments = """
                 user(login:"%s") {
                     login
                     databaseId
-                    commitComments(first:100%s) {
+                    commitComments(%s) {
                         totalCount
                         pageInfo {
                             endCursor
+                            hasPreviousPage
                             hasNextPage
                         }
                         edges {
+                            cursor
                             node {
                                 author {
                                     login
@@ -464,6 +466,23 @@ query_github_user_commit_comments = """
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+            }
+        """
+
+query_github_user_commit_comments_empty = """
+            query {
+                user(login:"%s") {
+                    login
+                    databaseId
+                    commitComments(%s) {
+                        totalCount
+                        pageInfo {
+                            endCursor
+                            hasPreviousPage
+                            hasNextPage
                         }
                     }
                 }
@@ -492,6 +511,11 @@ query_github_user_issue_comments = """
                                 body
                                 createdAt
                                 updatedAt
+                                pullRequest {
+									author {
+                                        login
+                                    }
+                                }
                                 issue {
                                     author {
                                         login
