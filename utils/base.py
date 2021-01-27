@@ -65,6 +65,15 @@ def time_handler(target_time):
     end_time = local_time.strftime("%Y-%m-%d %H:%M:%S")
     return end_time
 
+def add_one_year(target_time):
+    return target_time + timedelta(days=365)
+
+def add_one_day(target_time):
+    return target_time + timedelta(days=1)
+
+def datetime_to_github_time(target_time):
+    return target_time.strftime("%Y-%m-%dT%H:%M:%SZ")
+
 # get a suitable token
 def get_token(github_tokens, sleep_time_tokens, sleep_gap_token):
     while(True):

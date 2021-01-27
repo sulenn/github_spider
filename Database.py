@@ -256,7 +256,7 @@ class writeGithubSponsorListingTiersThread(threading.Thread):
                 db.close()
             except Exception as e:
                 logging.fatal(e)
-                return
+                logging.error(e)
 
 # write github user sponsorships as maintainer
 def writeGithubSponsorshipsAsMaintainer(path, sql):
@@ -553,7 +553,7 @@ class writeUserCommitsThread(threading.Thread):
                         count = 1
                         for week in obj["data"]["user"]["contributionsCollection"]["contributionCalendar"]["weeks"]:
                             for day in week["contributionDays"]:
-                                cur.execute("insert into github_user_commits_per_day "
+                                cur.execute("insert ignore into github_user_commits_per_day "
                                             "(login, date, weekday, contribution_count) "
                                             "values (%s, %s, %s, %s)",
                                             (obj["data"]["user"]["login"], day["date"], day["weekday"], day["contributionCount"]))
@@ -629,12 +629,14 @@ class writeUserIssuesThread(threading.Thread):
                         obj = json.loads(text)
                         logging.info("read file: " + file)
                         count = 1
-                        for node in obj["data"]["user"]["contributionsCollection"]["issueContributions"]["edges"]:
+                        if "edges" in obj["data"]["user"]["issues"]:
+                            continue
+                        for node in obj["data"]["user"]["issues"]["edges"]:
                             cur.execute("insert into github_user_issue "
                                         "(issue_database_id, login, created_at, title) "
                                         "values (%s, %s, %s, %s)",
-                                        (node["node"]["issue"]["databaseId"], obj["data"]["user"]["login"], base.time_handler(node["node"]["issue"]["createdAt"]),
-                                         node["node"]["issue"]["title"]))
+                                        (node["node"]["databaseId"], node["node"]["author"]["login"], base.time_handler(node["node"]["createdAt"]),
+                                         node["node"]["title"]))
                             db.commit()
                             logging.info("the " + str(count) + "th record in file: " + file)
                             count += 1
@@ -707,12 +709,14 @@ class writeUserPullRequestThread(threading.Thread):
                         obj = json.loads(text)
                         logging.info("read file: " + file)
                         count = 1
-                        for node in obj["data"]["user"]["contributionsCollection"]["pullRequestContributions"]["edges"]:
+                        if "edges" in obj["data"]["user"]["pullRequests"]:
+                            continue
+                        for node in obj["data"]["user"]["pullRequests"]["edges"]:
                             cur.execute("insert into github_user_pr "
                                         "(pr_database_id, login, created_at, title) "
                                         "values (%s, %s, %s, %s)",
-                                        (node["node"]["pullRequest"]["databaseId"], obj["data"]["user"]["login"], base.time_handler(node["node"]["pullRequest"]["createdAt"]),
-                                         node["node"]["pullRequest"]["title"]))
+                                        (node["node"]["databaseId"], node["node"]["author"]["login"], base.time_handler(node["node"]["createdAt"]),
+                                         node["node"]["title"]))
                             db.commit()
                             logging.info("the " + str(count) + "th record in file: " + file)
                             count += 1
@@ -787,11 +791,11 @@ class writeUserPullRequestReviewThread(threading.Thread):
                         count = 1
                         for node in obj["data"]["user"]["contributionsCollection"]["pullRequestReviewContributions"]["edges"]:
                             try:   # maybe happen duplicate key when insert data
-                                cur.execute("insert into github_user_pr_review "
-                                            "(pr_database_id, login, created_at, title) "
+                                cur.execute("insert ignore into github_user_pr_review "
+                                            "(pr_database_id, login, created_at, body) "
                                             "values (%s, %s, %s, %s)",
-                                            (node["node"]["pullRequest"]["databaseId"], obj["data"]["user"]["login"], base.time_handler(node["node"]["pullRequest"]["createdAt"]),
-                                             node["node"]["pullRequest"]["title"]))
+                                            (node["node"]["pullRequestReview"]["databaseId"], node["node"]["pullRequestReview"]["author"]["login"],
+                                             base.time_handler(node["node"]["pullRequestReview"]["createdAt"]), node["node"]["pullRequestReview"]["body"]))
                                 db.commit()
                                 logging.info("the " + str(count) + "th record in file: " + file)
                             except Exception as e:
@@ -1052,6 +1056,9 @@ class writeUserIssueCommentThread(threading.Thread):
                             except Exception as e:
                                 logging.error(e)
                                 logging.error("insert failed!! the " + str(count) + "th record in file: " + file)
+                                if node is None:
+                                    count += 1
+                                    continue
                                 if node["node"]["pullRequest"] is None:
                                     cur.execute("insert into github_issue_comment "
                                                 "(comm_database_id, login, created_at, updated_at, issue_database_id) "

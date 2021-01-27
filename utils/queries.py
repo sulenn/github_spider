@@ -43,21 +43,6 @@ query_github_user_sponsor_listing_info = """
                         name
                         shortDescription
                         slug
-                        tiers {
-                            totalCount
-                        }
-                    }
-                }      
-            }
-        """
-
-query_github_user_sponsor_listing_tiers_info = """
-            query {
-                user(login:"%s") {
-                    login
-                    databaseId
-                    sponsorsListing {
-                        slug
                         tiers(first:100) {
                             edges {
                                 node {
@@ -72,7 +57,7 @@ query_github_user_sponsor_listing_tiers_info = """
                             totalCount
                         }
                     }
-                }
+                }      
             }
         """
 
@@ -216,53 +201,52 @@ query_github_user_issues = """
                 user(login:"%s") {
                     login
                     databaseId
-                    contributionsCollection(from:"%s", to:"%s") {
-                        contributionYears
-                        doesEndInCurrentMonth
-                        earliestRestrictedContributionDate
-                        startedAt
-                        endedAt
-                        hasActivityInThePast
-                        hasAnyContributions
-                        hasAnyRestrictedContributions
-                        latestRestrictedContributionDate
-                        restrictedContributionsCount
-                        isSingleDay
-                        totalCommitContributions
-                        totalIssueContributions
-                        totalPullRequestContributions
-                        totalPullRequestReviewContributions
-                        totalRepositoriesWithContributedCommits
-                        totalRepositoriesWithContributedIssues
-                        totalRepositoriesWithContributedPullRequestReviews
-                        totalRepositoriesWithContributedPullRequests
-                        totalRepositoryContributions
-                        issueContributions(first:100, after:"%s") {
-                            pageInfo {
-                                endCursor
-                                hasNextPage
+                    issues(%s) {
+                        pageInfo {
+                            endCursor
+                            hasNextPage
+                        }
+                        totalCount
+                        edges {
+                            node {
+                                body
+                                closed
+                                updatedAt
+                                locked
+                                createdAt
+                                closed
+                                author {
+                                login
                             }
-                            totalCount
-                            edges {
-                                node {
-                                    occurredAt
-                                    isRestricted
-                                    issue {
-                                        closed
-                                        createdAt
-                                        closed
-                                        databaseId
-                                        number
-                                        title
-                                        repository {
-                                            createdAt
-                                            databaseId
-                                            name
-                                        }
+                                databaseId
+                                number
+                                title
+                                repository {
+                                    createdAt
+                                    databaseId
+                                    name
+                                    owner {
+                                        login
                                     }
                                 }
                             }
                         }
+                    }
+                }
+            }
+        """
+
+query_github_user_issues_empty = """
+            query {
+                user(login:"%s") {
+                    login
+                    databaseId
+                    issues(%s) {
+                        pageInfo {
+                            endCursor
+                            hasNextPage
+                        }
+                        totalCount
                     }
                 }
             }
@@ -273,53 +257,64 @@ query_github_user_pull_requests = """
                 user(login:"%s") {
                     login
                     databaseId
-                    contributionsCollection(from:"%s", to:"%s") {
-                        contributionYears
-                        doesEndInCurrentMonth
-                        earliestRestrictedContributionDate
-                        startedAt
-                        endedAt
-                        hasActivityInThePast
-                        hasAnyContributions
-                        hasAnyRestrictedContributions
-                        latestRestrictedContributionDate
-                        restrictedContributionsCount
-                        isSingleDay
-                        totalCommitContributions
-                        totalIssueContributions
-                        totalPullRequestContributions
-                        totalPullRequestReviewContributions
-                        totalRepositoriesWithContributedCommits
-                        totalRepositoriesWithContributedIssues
-                        totalRepositoriesWithContributedPullRequestReviews
-                        totalRepositoriesWithContributedPullRequests
-                        totalRepositoryContributions
-                        pullRequestContributions(first:100, after:"%s") {
-                            pageInfo {
-                                endCursor
-                                hasNextPage
-                            }
-                            totalCount
-                            edges {
-                                node {
-                                    occurredAt
-                                    isRestricted
-                                    pullRequest {
-                                        closed
-                                        createdAt
-                                        closed
-                                        databaseId
-                                        number
-                                        title
-                                        repository {
-                                            createdAt
-                                            databaseId
-                                            name
-                                        }
+                    pullRequests(%s) {
+                        pageInfo {
+                            endCursor
+                            hasNextPage
+                        }
+                        totalCount
+                        edges {
+                            node {
+                                body
+                                closed
+                                updatedAt
+                                locked
+                                createdAt
+                                closed
+                                author {
+                                    login
+                                }
+                                databaseId
+                                number
+                                title
+                                repository {
+                                    createdAt
+                                    databaseId
+                                    name
+                                    owner {
+                                        login
                                     }
                                 }
                             }
                         }
+                    }
+                }
+            }
+        """
+
+query_github_user_pull_requests_empty = """
+            query {
+                user(login:"%s") {
+                    login
+                    databaseId
+                    pullRequests(%s) {
+                        pageInfo {
+                            endCursor
+                            hasNextPage
+                        }
+                        totalCount
+                    }
+                }
+            }
+        """
+
+query_github_user_contributionYears = """
+            query {
+                user(login:"%s") {
+                    login
+                    databaseId
+                    contributionsCollection(from:"2020-01-01T00:00:00Z", to:"2021-01-01T00:00:00Z") {
+                        contributionYears
                     }
                 }
             }
@@ -359,12 +354,29 @@ query_github_user_pull_request_review = """
                             }
                             edges {
                                 node {
+                                    pullRequestReview {
+                                        author {
+                                            login
+                                        }
+                                        createdAt
+                                        databaseId
+                                        lastEditedAt
+                                        body
+                                        submittedAt
+                                        updatedAt
+                                    }
                                     occurredAt
                                     isRestricted
                                     pullRequest {
+                                        body
                                         closed
+                                        updatedAt
+                                        locked
                                         createdAt
                                         closed
+                                        author {
+                                            login
+                                        }
                                         databaseId
                                         number
                                         title
@@ -372,6 +384,9 @@ query_github_user_pull_request_review = """
                                             createdAt
                                             databaseId
                                             name
+                                            owner {
+                                                login
+                                            }
                                         }
                                     }
                                 }
