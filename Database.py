@@ -14,7 +14,7 @@ import logging
 # db config file
 f = open('config.yaml', 'r')
 config = yaml.load(f.read(), Loader=yaml.BaseLoader)
-THREAD_NUM = 10
+THREAD_NUM = 30
 base_path = ""
 
 # read all the tokens
@@ -488,6 +488,22 @@ def updateGithubSponsorshipsAsMaintainer(login, flag):
     cur.close()
     db.close()
 
+def update_github_user_flag(login, flag):
+    # create database connection
+    db = base.connectMysqlDB(config)
+    cur = db.cursor()
+
+    # read all the repos
+    cur.execute("update github_user "
+                "set flag= " + str(flag) + " "
+                "where login='" + login + "'")
+    items = cur.fetchall()
+    logging.info("finish reading database")
+
+    # close this database connection
+    cur.close()
+    db.close()
+
 # write the recently all of commit contribution
 def writeUserCommits(path, sql):
     global base_path
@@ -629,7 +645,7 @@ class writeUserIssuesThread(threading.Thread):
                         obj = json.loads(text)
                         logging.info("read file: " + file)
                         count = 1
-                        if "edges" in obj["data"]["user"]["issues"]:
+                        if "edges" not in obj["data"]["user"]["issues"]:
                             continue
                         for node in obj["data"]["user"]["issues"]["edges"]:
                             cur.execute("insert into github_user_issue "
@@ -709,7 +725,7 @@ class writeUserPullRequestThread(threading.Thread):
                         obj = json.loads(text)
                         logging.info("read file: " + file)
                         count = 1
-                        if "edges" in obj["data"]["user"]["pullRequests"]:
+                        if "edges" not in obj["data"]["user"]["pullRequests"]:
                             continue
                         for node in obj["data"]["user"]["pullRequests"]["edges"]:
                             cur.execute("insert into github_user_pr "

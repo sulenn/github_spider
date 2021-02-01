@@ -18,7 +18,7 @@ IF
 		`spon_sponsor_count` INT,
 	    `created_at` datetime,
 	    `updated_at` datetime,
-	    `flag` INT,              -- 0 is exist, 1 is not found
+	    `flag` INT,              -- 0 is exist, 1 is not found or organization
 	    PRIMARY KEY ( `login` )
 	)ENGINE=InnoDB DEFAULT CHARSET=utf8;
 

@@ -1067,6 +1067,9 @@ class crawlUserIssuesThread(threading.Thread):
                             continue
                         if response_json["errors"][0]["type"] == "RATE_LIMITED":
                             sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
+                        if response_json["errors"][0]["type"] == "NOT_FOUND":
+                            Database.update_github_user_flag(login, 1)
+                            break
                         logging.error("normal error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
                         continue
                     # handle the situation, when data doesn't existed, recover num_per_query and query
