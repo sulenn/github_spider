@@ -4,6 +4,7 @@ mysql:
   passwd: 'qiubing'
 #  db: 'GITHUB'
   db: 'GITHUB-SPONSORS-TEST'
+#  db: 'GITHUB-SPONSORS'
 
 #mysql:
 #  host: 'localhost'

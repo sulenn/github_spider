@@ -6,6 +6,8 @@ from utils import base
 import logging
 import yaml
 import json
+from shutil import rmtree
+from os import path
 
 # load logger
 base.setup_logging(base.logging_path, logging.DEBUG)
@@ -152,9 +154,8 @@ def crawl_user_info_from_init_user_table():
     # logging.info("write user database from init_user")
     Database.writeGithubUser(paths.github_user_info, sql_for_login)
 
-
 if __name__ == "__main__":
-    # Database.insert_user_from_json_file()
+    Database.insert_user_from_json_file()
     # crawl_user_info_from_init_user_table()
     # cycle_supply_user_data_by_sponsorships_as_sponsor_and_maintainer()
 
@@ -185,13 +186,13 @@ if __name__ == "__main__":
     # GraphQL.crawlUserCommits(paths.github_user_commits, queries.query_github_user_commits, sql_for_user_commits)
     # Database.writeUserCommits(paths.github_user_commits, sql_for_user_commits)
 
-    # handle github user issue info
-    sql_for_user_issues = "SELECT login \
-                            FROM github_user \
-                            WHERE has_sponsors_listing=TRUE and flag=0 and login NOT IN (SELECT DISTINCT login FROM \
-                                 github_user_issue)"
-    GraphQL.crawlUserIssues(paths.github_user_issues, queries.query_github_user_issues, sql_for_user_issues)
-    Database.writeUserIssues(paths.github_user_issues, sql_for_user_issues)
+    # # handle github user issue info
+    # sql_for_user_issues = "SELECT login \
+    #                         FROM github_user \
+    #                         WHERE has_sponsors_listing=TRUE and flag=0 and login NOT IN (SELECT DISTINCT login FROM \
+    #                              github_user_issue)"
+    # GraphQL.crawlUserIssues(paths.github_user_issues, queries.query_github_user_issues, sql_for_user_issues)
+    # Database.writeUserIssues(paths.github_user_issues, sql_for_user_issues)
 
     # # handle github user pull request
     # sql_for_user_pull_request = "SELECT login \
@@ -206,31 +207,31 @@ if __name__ == "__main__":
     #                                     from github_user \
     #                                     WHERE has_sponsors_listing=TRUE and flag=0 and login NOT IN (SELECT DISTINCT login FROM \
     #                                     github_user_pr_review)"
-    # # GraphQL.crawlUserPullRequestReview(paths.github_user_pull_request_review, queries.query_github_user_pull_request_review,
-    # #                              sql_for_user_pull_request_review)
+    # GraphQL.crawlUserPullRequestReview(paths.github_user_pull_request_review, queries.query_github_user_pull_request_review,
+    #                              sql_for_user_pull_request_review)
     # Database.writeUserPullRequestReview(paths.github_user_pull_request_review, sql_for_user_pull_request_review)
 
     # # handle github user repository
     # sql_for_user_repository = "SELECT login, created_at \
     #                             FROM github_user \
     #                             WHERE has_sponsors_listing=TRUE and flag=0 and login NOT IN (SELECT DISTINCT login FROM github_repository)"
-    # # GraphQL.crawlUserRepository(paths.github_user_repositories, queries.query_github_user_repositories,
-    # #                              sql_for_user_repository,)
+    # GraphQL.crawlUserRepository(paths.github_user_repositories, queries.query_github_user_repositories,
+    #                              sql_for_user_repository,)
     # Database.writeUserRepository(paths.github_user_repositories, sql_for_user_repository)
 
     # # handle github user commit comment
     # sql_for_user_commit_comment = "SELECT login \
     #                             FROM github_user \
     #                             WHERE has_sponsors_listing=TRUE and flag=0 and login NOT IN (SELECT DISTINCT login FROM github_commit_comment)"
-    # # GraphQL.crawlUserCommitComment(paths.github_user_commit_comments, queries.query_github_user_commit_comments,
-    # #                              sql_for_user_commit_comment)
+    # GraphQL.crawlUserCommitComment(paths.github_user_commit_comments, queries.query_github_user_commit_comments,
+    #                              sql_for_user_commit_comment)
     # Database.writeUserCommitComment(paths.github_user_commit_comments, sql_for_user_commit_comment)
 
-    # # handle github user issue comment_pr_comment)"
+    # # handle github user issue comment and pr comment"
     # sql_for_user_issue_comment = "SELECT login \
     #                             FROM github_user \
     #                             WHERE has_sponsors_listing=TRUE and flag=0 and login NOT IN (SELECT DISTINCT login FROM github_issue_comment) \
     #                              and login NOT IN (SELECT DISTINCT login FROM github_pr_comment)"
-    # # GraphQL.crawlUserIssueComment(paths.github_user_issue_comments, queries.query_github_user_issue_comments,
-    # #                              sql_for_user_issue_comment)
+    # GraphQL.crawlUserIssueComment(paths.github_user_issue_comments, queries.query_github_user_issue_comments,
+    #                              sql_for_user_issue_comment)
     # Database.writeUserIssueComment(paths.github_user_issue_comments, sql_for_user_issue_comment)

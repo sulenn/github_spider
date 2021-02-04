@@ -262,7 +262,7 @@ class writeGithubSponsorListingTiersThread(threading.Thread):
                                          edge["node"]["monthlyPriceInDollars"], edge["node"]["name"], base.time_handler(edge["node"]["createdAt"]),
                                          base.time_handler(edge["node"]["updatedAt"]), edge["node"]["description"]))
                             db.commit()
-                            logging.info("the " + str(count) + "th tier data commit into dababase success!!")
+                            # logging.info("the " + str(count) + "th tier data commit into dababase success!!")
                             count += 1
                     else:
                         logging.warn("login: " + login + " don't have sponsor_listing")
@@ -577,11 +577,12 @@ class writeUserCommitsThread(threading.Thread):
                 for file in files:
                     file_path = directory + "/" + file
                     text = base.get_info_from_file(file_path)
+                    logging.info("login: " + login + ", being handle file: " + file_path)
                     if text is False:
                         logging.warn("file not existed: " + file_path)
                     else:
                         obj = json.loads(text)
-                        logging.info("read file: " + file_path)
+                        # logging.info("read file: " + file_path)
                         count = 1
                         for week in obj["data"]["user"]["contributionsCollection"]["contributionCalendar"]["weeks"]:
                             for day in week["contributionDays"]:
@@ -590,13 +591,13 @@ class writeUserCommitsThread(threading.Thread):
                                             "values (%s, %s, %s, %s)",
                                             (obj["data"]["user"]["login"], day["date"], day["weekday"], day["contributionCount"]))
                                 db.commit()
-                                logging.info("the " + str(count) + "th record in file: " + file_path)
+                                # logging.info("the " + str(count) + "th record in file: " + file_path)
                                 count += 1
                 self.q.task_done()
                 cur.close()
                 db.close()
             except Exception as e:
-                logging.fatal(e)
+                logging.fatal("login: " + login + ", fatal info: " + e)
                 return
 
 # write the recently all of issue contribution
@@ -670,7 +671,7 @@ class writeUserIssuesThread(threading.Thread):
                                         (node["node"]["databaseId"], node["node"]["author"]["login"], base.time_handler(node["node"]["createdAt"]),
                                          node["node"]["title"]))
                             db.commit()
-                            logging.info("the " + str(count) + "th record in file: " + file)
+                            # logging.info("the " + str(count) + "th record in file: " + file)
                             count += 1
                 self.q.task_done()
                 cur.close()
@@ -750,7 +751,7 @@ class writeUserPullRequestThread(threading.Thread):
                                         (node["node"]["databaseId"], node["node"]["author"]["login"], base.time_handler(node["node"]["createdAt"]),
                                          node["node"]["title"]))
                             db.commit()
-                            logging.info("the " + str(count) + "th record in file: " + file)
+                            # logging.info("the " + str(count) + "th record in file: " + file)
                             count += 1
                 self.q.task_done()
                 cur.close()
@@ -829,7 +830,7 @@ class writeUserPullRequestReviewThread(threading.Thread):
                                             (node["node"]["pullRequestReview"]["databaseId"], node["node"]["pullRequestReview"]["author"]["login"],
                                              base.time_handler(node["node"]["pullRequestReview"]["createdAt"]), node["node"]["pullRequestReview"]["body"]))
                                 db.commit()
-                                logging.info("the " + str(count) + "th record in file: " + file)
+                                # logging.info("the " + str(count) + "th record in file: " + file)
                             except Exception as e:
                                 logging.error(e)
                             count += 1
@@ -903,13 +904,13 @@ class writeUserRepositoryThread(threading.Thread):
                         logging.info("read file: " + file)
                         count = 1
                         for node in obj["data"]["user"]["contributionsCollection"]["repositoryContributions"]["edges"]:
-                            cur.execute("insert into github_repository "
+                            cur.execute("insert ignore into github_repository "
                                         "(repo_database_id, login, name, created_at) "
                                         "values (%s, %s, %s, %s)",
                                         (node["node"]["repository"]["databaseId"], obj["data"]["user"]["login"], node["node"]["repository"]["name"],
                                          base.time_handler(node["node"]["repository"]["createdAt"])))
                             db.commit()
-                            logging.info("the " + str(count) + "th record in file: " + file)
+                            # logging.info("the " + str(count) + "th record in file: " + file)
                             count += 1
                 self.q.task_done()
                 cur.close()
@@ -1108,7 +1109,7 @@ class writeUserIssueCommentThread(threading.Thread):
                                                  base.time_handler(node["node"]["updatedAt"]),
                                                  node["node"]["issue"]["databaseId"]))
                                 db.commit()
-                            logging.info("the " + str(count) + "th record in file: " + file)
+                            # logging.info("the " + str(count) + "th record in file: " + file)
                             count += 1
                 self.q.task_done()
                 cur.close()
