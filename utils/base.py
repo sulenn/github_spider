@@ -71,6 +71,10 @@ def add_one_year(target_time):
 def add_one_day(target_time):
     return target_time + timedelta(days=1)
 
+# the format of time string: "%Y-%m-%d %H:%M:%S"
+def time_string_to_datetime(target_time):
+    return datetime.strptime(target_time, "%Y-%m-%d %H:%M:%S")
+
 def datetime_to_github_time(target_time):
     return target_time.strftime("%Y-%m-%dT%H:%M:%SZ")
 

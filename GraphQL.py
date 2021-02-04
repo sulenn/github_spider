@@ -23,6 +23,7 @@ query = ""
 start_time = ""
 end_time = ""
 url = "https://api.github.com/graphql"
+global_final_time = "2021-12-12 00:00:00"
 
 # read all the tokens
 f = open('github_tokens.txt', 'r')
@@ -197,6 +198,7 @@ class crawlUserThread(threading.Thread):
                         sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
                         if response_json["errors"][0]["type"] == "NOT_FOUND":
                             Database.updateGithubSponsorshipsAsSponsor(login, str(base.flag1))
+                            Database.updateGithubUserFlag(login, str(base.flag1))
                             self.q.task_done()
                             break
                         continue
@@ -747,19 +749,32 @@ def crawlUserCommits(p, q, sql):
     db = base.connectMysqlDB(config)
     cur = db.cursor()
 
+    # read handled task from directory
+    handled_logins = base.read_all_filename_none_path(base_path)
+
+    # judge handled logins is whether was handled, if true, handle unhandled task
+    for login in handled_logins:
+        workQueue.put_nowait({"login": login})
+    for _ in range(THREAD_NUM):
+        judgeUserCommitsThread(workQueue).start()
+    workQueue.join()
+
     # read all the repos
-    unhandled_tasks = []
+    unhandled_logins = []
     cur.execute(sql)
     items = cur.fetchall()
     for item in items:
-        login = item[0]
-        # judge the file is existed
-        filename = base_path + "/" + login + "/"
-        if base.judge_file_exist(filename):
-            continue
-        # unhandled tasks
-        unhandled_tasks.append({"login": item[0], "created_at": item[1]})
+        unhandled_logins.append(item[0])
     logging.info("finish reading database")
+
+    # unhandled logins
+    unhandled_logins = list(set(unhandled_logins) - set(handled_logins))
+
+    # unhandled tasks
+    unhandled_tasks = []
+    for item in items:
+        if item[0] in unhandled_logins:
+            unhandled_tasks.append({"login": item[0], "created_at": item[1]})
     logging.info("%d tasks left for handling" % (len(unhandled_tasks)))
 
     # close this database connection
@@ -779,6 +794,81 @@ def crawlUserCommits(p, q, sql):
 
     logging.info("finish")
 
+class judgeUserCommitsThread(threading.Thread):
+    def __init__(self, q):
+        threading.Thread.__init__(self)
+        self.q = q
+    def run(self):
+        while not self.q.empty():
+            work = self.q.get(timeout=0)
+            logging.info("the number of work in queue: " + str(self.q.qsize()))
+
+            login = work["login"]
+
+            # get the max index in handled login directory
+            directory_path = base_path + "/" + login
+            filenames = base.read_all_filename_none_path(directory_path)
+            indexes = []
+            for filename in filenames:
+                indexes.append(filename[-25:-6])
+            start_time = max(indexes)
+            start_time = start_time.replace('T', ' ')
+            start_time = base.time_string_to_datetime(start_time)
+            while base.datetime_to_timestamp(start_time) < base.time_string_to_timestamp(global_final_time):
+                end_time = base.add_one_year(start_time)
+                while True:
+                    # get a suitable token and combine header
+                    github_token = base.get_token(github_tokens, sleep_time_tokens, sleep_gap_token)
+                    # print github_token
+                    headers = {
+                        'Authorization': 'Bearer ' + github_token,
+                        'Content-Type': 'application/json'
+                    }
+                    # print "headers is: " + str(headers)
+                    values = {"query": query % (login, base.datetime_to_github_time(start_time),
+                                                base.datetime_to_github_time(end_time)), "variables": {}}
+                    try:
+                        response = requests.post(url=url, headers=headers, json=values, timeout=40)
+                        if response.status_code == 403:
+                            logging.error("response.status_code: " + str(response.status_code))
+                            sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
+                            continue
+                        if response.status_code != 200:
+                            logging.error("response.status_code: " + str(response.status_code))
+                            continue
+                        response_json = response.json()
+                        if "errors" in response_json:
+                            logging.error(json.dumps(response_json))
+                            if "type" not in response_json["errors"][0]:
+                                logging.fatal(
+                                    "unknown error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                                logging.info("login: " + login)
+                                continue
+                            if response_json["errors"][0]["type"] == "RATE_LIMITED":
+                                sleep_time_tokens[github_token] = time.time()  # set sleep time for that token
+                                logging.info("RATE_LIMITED!!!!!!!!!!!!!!!!!!!!!")
+                            logging.error("normal error!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                            continue
+                        # 写入文件
+                        filename = base_path + "/" + login + "/" + base.datetime_to_github_time(start_time) + "_" \
+                                   + base.datetime_to_github_time(end_time) + ".json"
+                        flag = base.generate_file(filename, json.dumps(response_json))
+                        if flag is True:
+                            logging.info("create file successfully: " + filename)
+                        elif flag is False:
+                            logging.warn("file is already existed: " + filename)
+                        else:
+                            logging.warn("create file failed: " + flag + " filename: " + filename)
+                    except (ConnectionError, ReadTimeout) as e:
+                        logging.error(e)
+                        continue
+                    except Exception as e:
+                        logging.fatal(e)
+                        continue
+                    break
+                start_time = base.add_one_day(end_time)
+            self.q.task_done()
+
 class crawlUserCommitsThread(threading.Thread):
     def __init__(self, q):
         threading.Thread.__init__(self)
@@ -790,8 +880,7 @@ class crawlUserCommitsThread(threading.Thread):
 
             login = work["login"]
             start_time = work["created_at"]
-            final_time = "2020-12-12 00:00:00"
-            while base.datetime_to_timestamp(start_time) < base.time_string_to_timestamp(final_time):
+            while base.datetime_to_timestamp(start_time) < base.time_string_to_timestamp(global_final_time):
                 end_time = base.add_one_year(start_time)
                 while True:
                     # get a suitable token and combine header
@@ -1407,8 +1496,7 @@ class crawlUserPullRequestReviewThread(threading.Thread):
 
             login = work["login"]
             start_time = work["created_at"]
-            final_time = "2020-12-12 00:00:00"
-            while base.datetime_to_timestamp(start_time) < base.time_string_to_timestamp(final_time):
+            while base.datetime_to_timestamp(start_time) < base.time_string_to_timestamp(global_final_time):
                 end_time = base.add_one_year(start_time)
                 count = 1
                 after_cursor = ""
@@ -1524,8 +1612,7 @@ class crawlUserRepositoryThread(threading.Thread):
 
             login = work["login"]
             start_time = work["created_at"]
-            final_time = "2020-12-12 00:00:00"
-            while base.datetime_to_timestamp(start_time) < base.time_string_to_timestamp(final_time):
+            while base.datetime_to_timestamp(start_time) < base.time_string_to_timestamp(global_final_time):
                 end_time = base.add_one_year(start_time)
                 count = 1
                 after_cursor = ""

@@ -3,7 +3,7 @@ mysql:
   user: 'root'
   passwd: 'qiubing'
 #  db: 'GITHUB'
-  db: 'GITHUB-SPONSORS'
+  db: 'GITHUB-SPONSORS-TEST'
 
 #mysql:
 #  host: 'localhost'

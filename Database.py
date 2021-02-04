@@ -84,12 +84,28 @@ class writeGithubUserThread(threading.Thread):
             else:
                 obj = json.loads(text)
                 logging.info("writing login data: " + login)
-                cur.execute("insert into github_user "
-                            "(database_id, login, name, email,spon_maintainer_count, spon_sponsor_count, created_at, updated_at) "
-                            "values (%s, %s, %s, %s, %s, %s, %s, %s)",
-                            (obj["data"]["user"]["databaseId"], obj["data"]["user"]["login"], obj["data"]["user"]["name"], obj["data"]["user"]["email"],
-                             obj["data"]["user"]["sponsorshipsAsMaintainer"]["totalCount"], obj["data"]["user"]["sponsorshipsAsSponsor"]["totalCount"],
-                             base.time_handler(obj["data"]["user"]["createdAt"]), base.time_handler(obj["data"]["user"]["updatedAt"])))
+                if obj["data"]["user"]["hasSponsorsListing"] is True:
+                    cur.execute("insert into github_user "
+                                "(database_id, login, name, email,spon_maintainer_count,"
+                                " spon_sponsor_count, created_at, updated_at, has_sponsors_listing) "
+                                "values (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                                (obj["data"]["user"]["databaseId"], obj["data"]["user"]["login"],
+                                 obj["data"]["user"]["name"], obj["data"]["user"]["email"],
+                                 obj["data"]["user"]["sponsorshipsAsMaintainer"]["totalCount"],
+                                 obj["data"]["user"]["sponsorshipsAsSponsor"]["totalCount"],
+                                 base.time_handler(obj["data"]["user"]["createdAt"]),
+                                 base.time_handler(obj["data"]["user"]["updatedAt"]), "1"))
+                else:
+                    cur.execute("insert into github_user "
+                                "(database_id, login, name, email,spon_maintainer_count,"
+                                " spon_sponsor_count, created_at, updated_at, has_sponsors_listing) "
+                                "values (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                                (obj["data"]["user"]["databaseId"], obj["data"]["user"]["login"],
+                                 obj["data"]["user"]["name"], obj["data"]["user"]["email"],
+                                 obj["data"]["user"]["sponsorshipsAsMaintainer"]["totalCount"],
+                                 obj["data"]["user"]["sponsorshipsAsSponsor"]["totalCount"],
+                                 base.time_handler(obj["data"]["user"]["createdAt"]),
+                                 base.time_handler(obj["data"]["user"]["updatedAt"]), "0"))
                 db.commit()
                 logging.info(login + " ~~~~~~~~~ data commit into dababase success!!")
             self.q.task_done()
@@ -1100,3 +1116,25 @@ class writeUserIssueCommentThread(threading.Thread):
             except Exception as e:
                 logging.fatal(e)
                 return
+
+# insert user data from xunhui brother
+def insert_user_from_json_file():
+    # read all the users
+    load_f = open('sponsorsListing_notnull.json', 'r')
+    load_list = json.load(load_f)
+    # get db connection
+    db = base.connectMysqlDB(config, autocommit=False)
+    cur = db.cursor()
+
+    # read data from file
+    for dict in load_list:
+        logging.info(dict["login"])
+        try:
+            cur.execute("insert into init_user "
+                        "(login) "
+                        "value ('" + dict["login"] + "')")
+            db.commit()
+        except Exception as e:
+            logging.fatal(e)
+    cur.close()
+    db.close()

@@ -9,40 +9,6 @@ query_github_user_info = """
                     createdAt
                     updatedAt
                     databaseId
-                    isBountyHunter
-                    isCampusExpert
-                    isDeveloperProgramMember
-                    isEmployee
-                    isHireable
-                    isSiteAdmin
-                    location
-                    projectsResourcePath
-                    projectsUrl
-                    url
-                    websiteUrl
-                    resourcePath
-                    twitterUsername
-                    sponsorshipsAsMaintainer(includePrivate: true) {
-                        totalCount
-                    }
-                    sponsorshipsAsSponsor {
-                        totalCount
-                    }
-                }
-            }
-        """
-
-query_github_all_user_sponsor_listing_info = """
-            query {
-                user(login:"%s") {
-                    name
-                    email
-                    login
-                    bio
-                    company
-                    createdAt
-                    updatedAt
-                    databaseId
                     hasSponsorsListing
                     isBountyHunter
                     isCampusExpert

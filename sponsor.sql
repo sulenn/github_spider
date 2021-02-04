@@ -19,6 +19,7 @@ IF
 	    `created_at` datetime,
 	    `updated_at` datetime,
 	    `flag` INT,              -- 0 is exist, 1 is not found or organization
+	    `has_sponsors_listing TINYINT`    -- 1 has sponsors listing, 0 hasn't sponsors listing
 	    PRIMARY KEY ( `login` )
 	)ENGINE=InnoDB DEFAULT CHARSET=utf8;
 

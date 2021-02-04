@@ -108,28 +108,6 @@ def insert_user_from_txt_file():
     cur.close()
     db.close()
 
-# insert user data from xunhui brother
-def insert_user_from_json_file():
-    # read all the users
-    load_f = open('sponsorsListing_notnull.json', 'r')
-    load_list = json.load(load_f)
-    # get db connection
-    db = base.connectMysqlDB(config, autocommit=False)
-    cur = db.cursor()
-
-    # read data from file
-    for dict in load_list:
-        logging.info(dict["login"])
-        try:
-            cur.execute("insert into init_user "
-                        "(login) "
-                        "value ('" + dict["login"] + "')")
-            db.commit()
-        except Exception as e:
-            logging.fatal(e)
-    cur.close()
-    db.close()
-
 # update github user table, if user has sponsors listing
 def update_github_user_table():
     # get db connection
@@ -165,116 +143,62 @@ def update_github_user_table():
     cur.close()
     db.close()
 
-# update github sponsor listing, if user has sponsors listing
-def update_github_sponsor_listing():
-    # get db connection
-    db = base.connectMysqlDB(config, autocommit=False)
-    cur = db.cursor()
-
-    filenames = base.read_all_filename_none_path(paths.github_all_user_sponsor_listing_info)
-    for filename in filenames:
-        # read data from file
-        file_path = paths.github_all_user_sponsor_listing_info + "/" + filename
-        text = base.get_info_from_file(file_path)
-        if text is False:
-            logging.fatal("file not existed: " + file_path)
-        else:
-            obj = json.loads(text)
-            logging.info("read file: " + file_path)
-            if obj["data"]["user"]["sponsorsListing"] is not None:
-                try:
-                    cur.execute("insert into github_sponsor_listing "
-                                "(login, slug, name, tiers_total_count, created_at, short_description) "
-                                "values (%s, %s, %s, %s, %s, %s)",
-                                (obj["data"]["user"]["login"], obj["data"]["user"]["sponsorsListing"]["slug"],
-                                 obj["data"]["user"]["sponsorsListing"]["name"],
-                                 obj["data"]["user"]["sponsorsListing"]["tiers"]["totalCount"],
-                                 base.time_handler(obj["data"]["user"]["sponsorsListing"]["createdAt"]),
-                                 obj["data"]["user"]["sponsorsListing"]["shortDescription"]))
-                    db.commit()
-                except Exception as e:
-                    logging.fatal(e)
-    cur.close()
-    db.close()
-
 def crawl_user_info_from_init_user_table():
     sql_for_login = "select distinct login \
                         from init_user \
                         WHERE login NOT IN (SELECT login from github_user)"
-    if not base.judge_sql_result(sql_for_login):
-        logging.warn("no more login to crawl and write from init_user")
-        return
     logging.info("crawl user data, save json file from init_user")
     GraphQL.crawlUser(paths.github_user_info, queries.query_github_user_info, sql_for_login)
     # logging.info("write user database from init_user")
-    # Database.writeGithubUser(paths.github_user_info, sql_for_login)
+    Database.writeGithubUser(paths.github_user_info, sql_for_login)
 
 
 if __name__ == "__main__":
-    # update_github_sponsor_listing()
-    # insert_user_from_json_file()
+    # Database.insert_user_from_json_file()
     # crawl_user_info_from_init_user_table()
     # cycle_supply_user_data_by_sponsorships_as_sponsor_and_maintainer()
 
-    # # handle github user info
-    # sql_for_user = "select sponsor_login \
-    #                 from github_sponsorships_as_maintainer \
-    #                 WHERE sponsor_login NOT IN (SELECT login from github_user)"
-    # GraphQL.crawlGithubUser(paths.github_user_info, queries.query_github_user_info, sql_for_user)
-    # Database.writeGithubUser(paths.github_user_info)
+    # # crawl all user info
+    # sql_for_user_info = "SELECT login \
+    #                         FROM github_user \
+    #                         WHERE flag=0"
+    # GraphQL.crawlUser(paths.github_user_info, queries.query_github_user_info, sql_for_user_info)
 
-    # # handle github user sponsor listing info
+    # # insert github user sponsor listing info to mysql
     # sql_for_sponsor_listing = "select login \
     #                             from github_user \
-    #                             WHERE spon_maintainer_count>0 and login NOT IN (SELECT login from github_sponsor_listing)"
+    #                             WHERE has_sponsors_listing=1 and login NOT IN (SELECT login from github_sponsor_listing)"
     # logging.info("handle github user sponsor listing info")
-    # GraphQL.crawlCommon(paths.github_user_sponsor_listing_info, queries.query_github_user_sponsor_listing_info, sql_for_sponsor_listing)
-    # Database.writeGithubSponsorListing(paths.github_user_sponsor_listing_info, sql_for_sponsor_listing)
+    # Database.writeGithubSponsorListing(paths.github_user_info, sql_for_sponsor_listing)
+
+    # # insert github user sponsor listing tiers to mysql
     # sql_for_sponsor_listing_tiers = "select login \
     #                                 from github_user \
-    #                                 WHERE spon_maintainer_count>0 and login NOT IN (SELECT DISTINCT login from github_sponsor_listing_tiers)"
-    # Database.writeGithubSponsorListingTiers(paths.github_user_sponsor_listing_info, sql_for_sponsor_listing_tiers)
+    #                                 WHERE has_sponsors_listing=1 and login NOT IN (SELECT DISTINCT login from github_sponsor_listing_tiers)"
+    # Database.writeGithubSponsorListingTiers(paths.github_user_info, sql_for_sponsor_listing_tiers)
 
-    # # handle github user sponsorships info as maintainer
-    # sql_for_sponsorships_as_maintainer = "select login \
-    #                                 from github_user \
-    #                                 WHERE spon_maintainer_count>0 and login NOT IN (SELECT DISTINCT login from github_sponsorships_as_maintainer)"
-    # GraphQL.crawlSponsorshipsAsMaintainer(paths.github_user_sponsorships_as_maintainer, queries.query_github_user_sponsorships_as_maintainer_info,
-    #                                 sql_for_sponsorships_as_maintainer)
-    # Database.writeGithubSponsorshipsAsMaintainer(paths.github_user_sponsorships_as_maintainer, sql_for_sponsorships_as_maintainer)
-
-    # # handle github user sponsorships info as sponsor
-    # sql_for_sponsorships_as_sponsor = "select distinct login \
-    #                                     from github_user \
-    #                                     WHERE spon_sponsor_count!=0 " \
-    #                                     "AND login NOT IN (SELECT distinct sponsor_login from github_sponsorships_as_sponsor)"
-    # GraphQL.crawlSponsorshipsAsSponsor(paths.github_user_sponsorships_as_sponsor, queries.query_github_user_sponsorships_as_sponsor_info,
-    #                                 sql_for_sponsorships_as_sponsor)
-    # Database.writeGithubSponsorshipsAsSponsor(paths.github_user_sponsorships_as_sponsor, sql_for_sponsorships_as_sponsor)
-
-    # # # handle github user commit info
+    # # handle github user commit info
     # sql_for_user_commits = "SELECT login, created_at \
     #                             FROM github_user \
     #                             WHERE has_sponsors_listing=TRUE and flag=0 and login NOT IN (SELECT DISTINCT login FROM \
     #                             github_user_commits_per_day)"
-    # # GraphQL.crawlUserCommits(paths.github_user_commits, queries.query_github_user_commits, sql_for_user_commits)
+    # GraphQL.crawlUserCommits(paths.github_user_commits, queries.query_github_user_commits, sql_for_user_commits)
     # Database.writeUserCommits(paths.github_user_commits, sql_for_user_commits)
 
-    # # handle github user issue info
-    # sql_for_user_issues = "SELECT login \
-    #                         FROM github_user \
-    #                         WHERE has_sponsors_listing=TRUE and flag=0 and login NOT IN (SELECT DISTINCT login FROM \
-    #                              github_user_issue)"
-    # # GraphQL.crawlUserIssues(paths.github_user_issues, queries.query_github_user_issues,
-    # #                              sql_for_user_issues)
-    # Database.writeUserIssues(paths.github_user_issues, sql_for_user_issues)
+    # handle github user issue info
+    sql_for_user_issues = "SELECT login \
+                            FROM github_user \
+                            WHERE has_sponsors_listing=TRUE and flag=0 and login NOT IN (SELECT DISTINCT login FROM \
+                                 github_user_issue)"
+    GraphQL.crawlUserIssues(paths.github_user_issues, queries.query_github_user_issues, sql_for_user_issues)
+    Database.writeUserIssues(paths.github_user_issues, sql_for_user_issues)
 
     # # handle github user pull request
     # sql_for_user_pull_request = "SELECT login \
     #                             FROM github_user \
     #                             WHERE has_sponsors_listing=TRUE and flag=0 and login NOT IN (SELECT DISTINCT login FROM \
     #                              github_user_pr)"
-    # # GraphQL.crawlUserPullRequests(paths.github_user_pull_requests, queries.query_github_user_pull_requests, sql_for_user_pull_request)
+    # GraphQL.crawlUserPullRequests(paths.github_user_pull_requests, queries.query_github_user_pull_requests, sql_for_user_pull_request)
     # Database.writeUserPullRequests(paths.github_user_pull_requests, sql_for_user_pull_request)
 
     # # handle github user pull request review
@@ -302,19 +226,11 @@ if __name__ == "__main__":
     # #                              sql_for_user_commit_comment)
     # Database.writeUserCommitComment(paths.github_user_commit_comments, sql_for_user_commit_comment)
 
-    # handle github user issue comment_pr_comment)"
-    sql_for_user_issue_comment = "SELECT login \
-                                FROM github_user \
-                                WHERE has_sponsors_listing=TRUE and flag=0 and login NOT IN (SELECT DISTINCT login FROM github_issue_comment) \
-                                 and login NOT IN (SELECT DISTINCT login FROM github_pr_comment)"
-    # GraphQL.crawlUserIssueComment(paths.github_user_issue_comments, queries.query_github_user_issue_comments,
-    #                              sql_for_user_issue_comment)
-    Database.writeUserIssueComment(paths.github_user_issue_comments, sql_for_user_issue_comment)
-
-    # # crawl all user sponsor listing data
-    # sql_for_user_sponsor_listing = "SELECT login \
-    #                                 FROM github_user \
-    #                                 WHERE flag=0"
-    # GraphQL.crawlAllUserSponsorListing(paths.github_all_user_sponsor_listing_info, queries.query_github_all_user_sponsor_listing_info,
-    #                               sql_for_user_sponsor_listing)
-    # Database.writeGithubSponsorListing(paths.github_all_user_sponsor_listing_info, sql_for_user_sponsor_listing)
+    # # handle github user issue comment_pr_comment)"
+    # sql_for_user_issue_comment = "SELECT login \
+    #                             FROM github_user \
+    #                             WHERE has_sponsors_listing=TRUE and flag=0 and login NOT IN (SELECT DISTINCT login FROM github_issue_comment) \
+    #                              and login NOT IN (SELECT DISTINCT login FROM github_pr_comment)"
+    # # GraphQL.crawlUserIssueComment(paths.github_user_issue_comments, queries.query_github_user_issue_comments,
+    # #                              sql_for_user_issue_comment)
+    # Database.writeUserIssueComment(paths.github_user_issue_comments, sql_for_user_issue_comment)
